@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Trash2, Download, PlusCircle, Loader2, Calendar, Clock, Settings } from "lucide-react";
+import * as ort from "onnxruntime-web";
 
 type Task = {
   name: string;
@@ -17,12 +18,10 @@ type Task = {
   available_hours: number;
 };
 
-type DailySchedule = {
-  [key: string]: number;
-};
-
 const LS_TASKS_KEY = "planner_tasks_v2";
 const LS_SCHEDULE_KEY = "planner_schedule_v1";
+const MODEL_CACHE_KEY = "onnx_model_cache";
+const MODEL_URL = "/models/attention_planner.onnx";
 
 export default function Page() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -31,13 +30,53 @@ export default function Page() {
   const [minD, setMinD] = useState(1.0);
   const [maxD, setMaxD] = useState(1.5);
   const [dueDate, setDueDate] = useState("");
-  const [dueTime, setDueTime] = useState("17:00");
   const [dailyHours, setDailyHours] = useState(8);
   const [weekendHours, setWeekendHours] = useState(4);
   const [rest, setRest] = useState(1.2);
   const [plan, setPlan] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  
+  const sessionRef = useRef<ort.InferenceSession | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      try {
+        // Try to load from cache first
+        const cache = await caches.open(MODEL_CACHE_KEY);
+        let modelData: ArrayBuffer;
+
+        const cachedResponse = await cache.match(MODEL_URL);
+        
+        if (cachedResponse) {
+          // Load from cache
+          modelData = await cachedResponse.arrayBuffer();
+        } else {
+          // Download and cache
+          const response = await fetch(MODEL_URL);
+          if (!response.ok) throw new Error("Failed to fetch model");
+          
+          // Clone response for caching
+          await cache.put(MODEL_URL, response.clone());
+          modelData = await response.arrayBuffer();
+        }
+
+        // Create session from buffer
+        const session = await ort.InferenceSession.create(modelData, {
+          executionProviders: ["wasm"]
+        });
+        
+        sessionRef.current = session;
+        setModelReady(true);
+      } catch (err) {
+        console.error("Failed to load ONNX model:", err);
+        setModelError("Failed to load AI model. Please check your connection and refresh.");
+      }
+    }
+    loadModel();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -95,9 +134,9 @@ export default function Page() {
     }
   }, [dailyHours, weekendHours]);
 
-  function calculateAvailableHours(dueDate: string, dueTime: string): number {
+  function calculateAvailableHours(dueDate: string): number {
     const now = new Date();
-    const deadline = new Date(`${dueDate}T${dueTime}`);
+    const deadline = new Date(`${dueDate}T17:00`); // Default to 5 PM
     
     if (deadline <= now) return 0;
 
@@ -130,22 +169,117 @@ export default function Page() {
     return Math.max(0, Math.round(totalHours * 10) / 10);
   }
 
+  function taskToVec(t: { priority: number; min_duration: number; max_duration: number; available_hours: number }, currentTime = 0): number[] {
+    const avgDur = (t.min_duration + t.max_duration) / 2;
+    const slack = Math.max(0, t.available_hours - currentTime - avgDur);
+    return [
+      t.priority / 10,
+      avgDur / 4,
+      t.available_hours / 30,
+      slack / 20,
+      currentTime / 20,
+      (t.priority * avgDur) / 40
+    ];
+  }
+
+  async function getPlan(greedy = true) {
+    if (!sessionRef.current) {
+      alert("Model is still loading. Please wait a moment.");
+      return;
+    }
+
+    setLoading(true);
+    setPlan(null);
+
+    try {
+      const apiTasks = tasks.map(({ available_hours, ...rest }) => ({
+        ...rest,
+        due_time: available_hours
+      }));
+
+      const planIndices: number[] = [];
+      const remaining = apiTasks.map((_, i) => i);
+      let currentTime = 0;
+
+      while (remaining.length > 0) {
+        const feats = remaining.map(i => taskToVec({
+          priority: apiTasks[i].priority,
+          min_duration: apiTasks[i].min_duration,
+          max_duration: apiTasks[i].max_duration,
+          available_hours: apiTasks[i].due_time
+        }, currentTime));
+        
+        const numTasks = feats.length;
+        const flat = new Float32Array(feats.flat());
+        const tensor = new ort.Tensor("float32", flat, [numTasks, 6]);
+
+        const maskArr = new Float32Array(numTasks).fill(1.0);
+        const maskTensor = new ort.Tensor("float32", maskArr, [numTasks]);
+
+        const restTensor = new ort.Tensor("float32", Float32Array.from([rest]), [1]);
+
+        const feeds: Record<string, ort.Tensor> = {
+          task_features: tensor,
+          rest_factor: restTensor,
+          mask: maskTensor
+        };
+
+        const results = await sessionRef.current.run(feeds);
+        const logits = results.logits.data as Float32Array;
+        
+        const maxLogit = Math.max(...Array.from(logits));
+        const exps = Array.from(logits).map(v => Math.exp(v - maxLogit));
+        const sumexp = exps.reduce((a, b) => a + b, 0);
+        const probs = exps.map(e => e / sumexp);
+
+        let idxSelected = 0;
+        if (greedy) {
+          idxSelected = probs.indexOf(Math.max(...probs));
+        } else {
+          const r = Math.random();
+          let cum = 0;
+          idxSelected = probs.findIndex(p => (cum += p) >= r);
+          if (idxSelected < 0) idxSelected = probs.length - 1;
+        }
+
+        const selected = remaining[idxSelected];
+        planIndices.push(selected);
+
+        const t = apiTasks[selected];
+        const avgDur = (t.min_duration + t.max_duration) / 2;
+        currentTime += avgDur * rest;
+
+        remaining.splice(idxSelected, 1);
+      }
+
+      setPlan(planIndices);
+    } catch (err) {
+      console.error("Planning error:", err);
+      alert("Failed to generate plan. Please try again.");
+    }
+
+    setLoading(false);
+  }
+
   function addTask() {
     const newName = name?.trim() || `Task ${tasks.length + 1}`;
-    const availableHours = calculateAvailableHours(dueDate, dueTime);
+    const availableHours = calculateAvailableHours(dueDate);
     
     setTasks((prev) => [
       ...prev,
       { 
         name: newName, 
-        priority, 
-        min_duration: Number(minD), 
-        max_duration: Number(maxD), 
+        priority: priority || 5, 
+        min_duration: minD || 1, 
+        max_duration: maxD || 1.5, 
         due_date: dueDate,
         available_hours: availableHours
       },
     ]);
     setName("");
+    setPriority(5);
+    setMinD(1.0);
+    setMaxD(1.5);
     
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -157,57 +291,14 @@ export default function Page() {
     setPlan(null);
   }
 
-  async function getPlan(greedy = true) {
-    setLoading(true);
-    setPlan(null);
-
+  async function clearCache() {
     try {
-      const apiTasks = tasks.map(({ name: _n, due_date: _d, available_hours, ...rest }) => ({
-        ...rest,
-        due_time: available_hours
-      }));
-
-      const res = await fetch("/api/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks: apiTasks, rest_factor: rest, greedy }),
-      });
-
-      const text = await res.text();
-      let planArr: number[] | null = null;
-
-      try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) planArr = parsed.map((v) => Number(v));
-        else if (Array.isArray(parsed?.plan)) planArr = parsed.plan.map((v: any) => Number(v));
-        else if (Array.isArray(parsed?.data?.plan)) planArr = parsed.data.plan.map((v: any) => Number(v));
-      } catch (e) {
-        const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-        const indices: number[] = [];
-        const indexRegex = /#\s*(\d+)/g;
-        for (const line of lines) {
-          let m: RegExpExecArray | null;
-          while ((m = indexRegex.exec(line)) !== null) {
-            indices.push(Number(m[1]));
-          }
-        }
-        if (indices.length) planArr = indices;
-      }
-
-      if (!planArr) {
-        const nums = Array.from(text.matchAll(/\b(\d+)\b/g)).map((m) => Number(m[1]));
-        if (nums.length) planArr = nums;
-      }
-
-      if (!planArr) throw new Error("Unable to parse plan from response");
-
-      const sanitized = planArr.map((n) => Math.max(0, Math.min(tasks.length - 1, Number(n))));
-      setPlan(sanitized);
+      const cache = await caches.open(MODEL_CACHE_KEY);
+      await cache.delete(MODEL_URL);
+      alert("Cache cleared! Please refresh the page to reload the model.");
     } catch (err) {
-      alert("Failed to generate plan. Please try again.");
+      console.error("Failed to clear cache:", err);
     }
-
-    setLoading(false);
   }
 
   function exportTasks() {
@@ -235,6 +326,29 @@ export default function Page() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  if (modelError) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600">Error Loading Model</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-slate-700">{modelError}</p>
+            <div className="flex gap-2">
+              <Button onClick={() => window.location.reload()} className="flex-1">
+                Retry
+              </Button>
+              <Button variant="outline" onClick={clearCache} className="flex-1">
+                Clear Cache
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 md:p-8 font-sans text-slate-800">
       <motion.div
@@ -248,6 +362,17 @@ export default function Page() {
             Intelligent Task Planner
           </h1>
           <p className="text-slate-600">Optimize your schedule with AI-powered planning</p>
+          {modelReady ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              AI Model Ready
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Loading AI Model...
+            </div>
+          )}
         </div>
 
         <Card className="shadow-lg border-indigo-100">
@@ -270,7 +395,7 @@ export default function Page() {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Calendar size={14} /> Due Date
                   </Label>
@@ -278,18 +403,6 @@ export default function Page() {
                     type="date" 
                     value={dueDate} 
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Clock size={14} /> Due Time
-                  </Label>
-                  <Input 
-                    type="time" 
-                    value={dueTime} 
-                    onChange={(e) => setDueTime(e.target.value)}
                     className="mt-1"
                   />
                 </div>
@@ -302,8 +415,9 @@ export default function Page() {
                     type="number" 
                     min={1} 
                     max={10} 
-                    value={priority}
-                    onChange={(e) => setPriority(Number(e.target.value))}
+                    value={priority || ""}
+                    onChange={(e) => setPriority(e.target.value === "" ? 0 : Number(e.target.value))}
+                    placeholder="5"
                     className="mt-1"
                   />
                   <p className="text-xs text-slate-500 mt-1">1-10 scale</p>
@@ -313,9 +427,11 @@ export default function Page() {
                   <Label className="text-sm font-medium">Min Duration</Label>
                   <Input 
                     type="number" 
-                    step="0.5" 
-                    value={minD} 
-                    onChange={(e) => setMinD(Number(e.target.value))}
+                    step="0.5"
+                    min={0}
+                    value={minD || ""}
+                    onChange={(e) => setMinD(e.target.value === "" ? 0 : Number(e.target.value))}
+                    placeholder="1.0"
                     className="mt-1"
                   />
                   <p className="text-xs text-slate-500 mt-1">hours</p>
@@ -325,9 +441,11 @@ export default function Page() {
                   <Label className="text-sm font-medium">Max Duration</Label>
                   <Input 
                     type="number" 
-                    step="0.5" 
-                    value={maxD} 
-                    onChange={(e) => setMaxD(Number(e.target.value))}
+                    step="0.5"
+                    min={0}
+                    value={maxD || ""}
+                    onChange={(e) => setMaxD(e.target.value === "" ? 0 : Number(e.target.value))}
+                    placeholder="1.5"
                     className="mt-1"
                   />
                   <p className="text-xs text-slate-500 mt-1">hours</p>
@@ -337,7 +455,7 @@ export default function Page() {
               {dueDate && (
                 <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
                   <p className="text-sm text-indigo-900">
-                    <strong>Available time:</strong> {calculateAvailableHours(dueDate, dueTime).toFixed(1)} hours 
+                    <strong>Available time:</strong> {calculateAvailableHours(dueDate).toFixed(1)} hours 
                     <span className="text-indigo-600"> · {formatDueDate(dueDate)}</span>
                   </p>
                 </div>
@@ -382,9 +500,11 @@ export default function Page() {
                       <Label className="text-sm font-medium">Weekday Hours</Label>
                       <Input 
                         type="number" 
-                        step="0.5" 
-                        value={dailyHours} 
-                        onChange={(e) => setDailyHours(Number(e.target.value))}
+                        step="0.5"
+                        min={0}
+                        value={dailyHours || ""}
+                        onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))}
+                        placeholder="8"
                         className="mt-1"
                       />
                       <p className="text-xs text-slate-500 mt-1">Mon-Fri available hours</p>
@@ -394,9 +514,11 @@ export default function Page() {
                       <Label className="text-sm font-medium">Weekend Hours</Label>
                       <Input 
                         type="number" 
-                        step="0.5" 
-                        value={weekendHours} 
-                        onChange={(e) => setWeekendHours(Number(e.target.value))}
+                        step="0.5"
+                        min={0}
+                        value={weekendHours || ""}
+                        onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))}
+                        placeholder="4"
                         className="mt-1"
                       />
                       <p className="text-xs text-slate-500 mt-1">Sat-Sun available hours</p>
@@ -406,13 +528,24 @@ export default function Page() {
                       <Label className="text-sm font-medium">Rest Factor</Label>
                       <Input 
                         type="number" 
-                        step="0.1" 
-                        value={rest} 
-                        onChange={(e) => setRest(Number(e.target.value))}
+                        step="0.1"
+                        min={0}
+                        value={rest || ""}
+                        onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))}
+                        placeholder="1.2"
                         className="mt-1"
                       />
                       <p className="text-xs text-slate-500 mt-1">Planning buffer multiplier</p>
                     </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t">
+                    <Button variant="outline" size="sm" onClick={clearCache}>
+                      Clear Model Cache
+                    </Button>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Clear cached model data to force re-download
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -480,30 +613,38 @@ export default function Page() {
         </Card>
 
         {tasks.length > 0 && (
-          <div className="flex justify-center gap-4">
-            <Button 
-              onClick={() => getPlan(true)} 
-              disabled={loading}
-              size="lg"
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-8"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin mr-2" size={18} />
-                  Generating...
-                </>
-              ) : (
-                "Generate Optimal Plan"
-              )}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => getPlan(false)} 
-              disabled={loading}
-              size="lg"
-            >
-              Sample Plan
-            </Button>
+          <div className="flex flex-col items-center gap-3">
+            {!modelReady && (
+              <div className="text-sm text-amber-600 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Waiting for AI model to load...
+              </div>
+            )}
+            <div className="flex gap-4">
+              <Button 
+                onClick={() => getPlan(true)} 
+                disabled={loading || !modelReady}
+                size="lg"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-8"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" size={18} />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Optimal Plan"
+                )}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => getPlan(false)} 
+                disabled={loading || !modelReady}
+                size="lg"
+              >
+                Sample Plan
+              </Button>
+            </div>
           </div>
         )}
 
