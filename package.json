@@ -18,7 +18,9 @@
     "onnxruntime-node": "^1.23.0",
     "onnxruntime-web": "^1.23.0",
     "react": "19.1.0",
+    "react-date-object": "^2.1.9",
     "react-dom": "19.1.0",
+    "react-multi-date-picker": "^4.5.2",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
