@@ -262,7 +262,7 @@ export default function Page() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2 mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"> برنامه‌ریز هوشمند  </h1>
-          <p className="text-slate-600">برنامه ریزی و اولویت بندی بر اساس مدل شبکه عصبی</p>
+          <p className="text-slate-600">برنامه ریزی و اولیت بندی با کمک شبکه های عصبی مصنوعی و مکانیسم Attention</p>
           {modelReady ? ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium"> <div className="w-2 h-2 bg-green-500 rounded-full"></div> مدل هوش مصنوعی آماده است </div> ) : 
                        ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> در حال بارگذاری مدل... </div> )}
         </div>
@@ -341,6 +341,9 @@ export default function Page() {
         {tasks.length > 0 && ( <div className="flex flex-col items-center gap-3"> {!modelReady && ( <div className="text-sm text-amber-600 flex items-center gap-2"> <Loader2 className="w-4 h-4 animate-spin" /> در انتظار بارگذاری مدل... </div> )} <div className="flex gap-4"> <Button onClick={() => getPlan(true)} disabled={loading || !modelReady} size="lg" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-8"> {loading ? ( <> <Loader2 className="animate-spin ml-2" size={18} /> در حال ساخت برنامه... </> ) : ( "ساخت برنامه بهینه" )} </Button> <Button variant="outline" onClick={() => getPlan(false)} disabled={loading || !modelReady} size="lg"> ساخت برنامه تصادفی </Button> </div> </div> )}
         <AnimatePresence> {plan && ( <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}> <Card className="shadow-lg border-green-200 bg-gradient-to-br from-green-50 to-emerald-50"> <CardHeader> <CardTitle className="text-xl font-semibold text-green-900 flex items-center gap-2"> <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white text-sm">✓</div> برنامه پیشنهادی شما </CardTitle> </CardHeader> <CardContent> <div className="space-y-3"> {plan.map((idx, pos) => { const t = tasks[idx]; if (!t) return null; const avg = ((t.min_duration + t.max_duration) / 2).toFixed(1); return ( <motion.div key={pos} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: pos * 0.08 }} className="flex items-center gap-4 p-4 rounded-lg bg-white border border-green-200 shadow-sm"> <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center font-bold"> {toPersianDigits(pos + 1)} </div> <div className="flex-1 min-w-0"> <h4 className="font-semibold text-slate-900">{t.name}</h4> <div className="flex flex-wrap gap-3 mt-1 text-xs text-slate-600"> <span>حدود {toPersianDigits(avg)} ساعت</span> <span>·</span> <span>اولویت {toPersianDigits(t.priority)}</span> <span>·</span> <span>مهلت {formatDueDate(t.due_date)}</span> </div> </div> </motion.div> ); })} </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
       </motion.div>
+      <footer className="mt-12 py-6 text-center text-slate-500 text-sm border-t border-slate-200">
+        توسعه داده شده توسط حجت منزوی
+      </footer>
     </main>
   );
 }
