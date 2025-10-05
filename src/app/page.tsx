@@ -83,7 +83,7 @@ export default function Page() {
         const parsed = JSON.parse(rawTasks);
         if (Array.isArray(parsed)) {
           setTasks(parsed.map((t: any, i: number) => ({
-            name: t.name || `کار ${i + 1}`,
+            name: t.name || `تکلیف ${i + 1}`,
             priority: t.priority ?? 5,
             min_duration: t.min_duration ?? 1,
             max_duration: t.max_duration ?? 1.5,
@@ -205,7 +205,7 @@ export default function Page() {
   }
 
   function addTask() {
-    const newName = name?.trim() || `کار شماره ${toPersianDigits(tasks.length + 1)}`;
+    const newName = name?.trim() || `تکلیف شماره ${toPersianDigits(tasks.length + 1)}`;
     const availableHours = calculateAvailableHours(dueDate);
     setTasks((prev) => [...prev, { name: newName, priority: priority || 5, min_duration: minD || 1, max_duration: maxD || 1.5, due_date: dueDate, available_hours: availableHours }]);
   }
@@ -267,13 +267,13 @@ export default function Page() {
                        ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> در حال بارگذاری مدل... </div> )}
         </div>
         <Card className="shadow-lg border-indigo-100">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50"> <CardTitle className="text-xl font-semibold flex items-center gap-2"> <PlusCircle className="text-indigo-600" size={20} /> افزودن کار جدید </CardTitle> </CardHeader>
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50"> <CardTitle className="text-xl font-semibold flex items-center gap-2"> <PlusCircle className="text-indigo-600" size={20} /> افزودن تکلیف جدید </CardTitle> </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <Label className="text-sm font-medium">عنوان تکلیف</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`مثال: تکمیل پیشنهاد پروژه`} className="mt-1" />
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`مثال: مطالعه فیزیولوژی`} className="mt-1" />
                 </div>
                 <div className="md:col-span-2">
                   <Label className="text-sm font-medium flex items-center gap-2"> <Calendar size={14} /> مهلت انجام </Label>
@@ -299,7 +299,7 @@ export default function Page() {
               </div>
               {dueDate && ( <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200"> <p className="text-sm text-indigo-900"> <strong>زمان در دسترس شما:</strong> {toPersianDigits(calculateAvailableHours(dueDate).toFixed(1))} ساعت <span className="text-indigo-600"> · {formatDueDate(dueDate)}</span> </p> </div> )}
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button onClick={addTask} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" disabled={!dueDate}> <PlusCircle size={16} className="ml-2" /> افزودن کار </Button>
+                <Button onClick={addTask} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" disabled={!dueDate}> <PlusCircle size={16} className="ml-2" /> افزودن تکلیف </Button>
                 <Button variant="outline" onClick={() => setShowSettings(!showSettings)}> <Settings size={16} className="ml-2" /> تنظیمات </Button>
                 <Button variant="outline" onClick={exportTasks}> <Download size={16} className="ml-2" /> دریافت خروجی </Button>
                 {tasks.length > 0 && (<Button variant="destructive" onClick={clearTasks}>پاک‌ کردن همه</Button>)}
@@ -309,9 +309,9 @@ export default function Page() {
         </Card>
         <AnimatePresence> {showSettings && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}> <Card className="shadow-md border-slate-200"> <CardHeader> <CardTitle className="text-lg font-semibold">تنظیمات برنامه‌ریزی</CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> <div> <Label className="text-sm font-medium">ساعات کاری (روزهای عادی)</Label> <Input type="number" step="0.5" min={0} value={dailyHours || ""} onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۸" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">شنبه تا چهارشنبه</p> </div> <div> <Label className="text-sm font-medium">ساعات کاری (آخر هفته)</Label> <Input type="number" step="0.5" min={0} value={weekendHours || ""} onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۴" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">پنجشنبه و جمعه</p> </div> <div> <Label className="text-sm font-medium">ضریب استراحت</Label> <Input type="number" step="0.1" min={1} value={rest || ""} onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۲" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">برای محاسبه زمان استراحت بین کارها</p> </div> </div> <div className="mt-4 pt-4 border-t"> <Button variant="outline" size="sm" onClick={clearCache}> پاک‌سازی حافظه پنهان مدل </Button> <p className="text-xs text-slate-500 mt-2">برای دریافت آخرین نسخه مدل، حافظه پنهان را پاک کنید.</p> </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
         <Card className="shadow-md">
-          <CardHeader> <CardTitle className="text-lg font-semibold">لیست کارها ({toPersianDigits(tasks.length)})</CardTitle> </CardHeader>
+          <CardHeader> <CardTitle className="text-lg font-semibold">لیست تکالیف ({toPersianDigits(tasks.length)})</CardTitle> </CardHeader>
           <CardContent>
-            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-slate-400" size={32} /> </div> <p className="text-slate-500">هنوز کاری ثبت نکرده‌اید. اولین کار خود را اضافه کنید!</p> </div> ) : 
+            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-slate-400" size={32} /> </div> <p className="text-slate-500">هنوز تکلیفی ثبت نکرده‌اید. اولین تکلیف خود را اضافه کنید!</p> </div> ) : 
             ( <div className="space-y-3"> {tasks.map((t, i) => {
                 const overdue = isOverdue(t.due_date);
                 return (
