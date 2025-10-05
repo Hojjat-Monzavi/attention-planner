@@ -204,15 +204,10 @@ export default function Page() {
     setLoading(false);
   }
 
-  // FIX 2: Reset form details but KEEP the selected dueDate for convenience.
   function addTask() {
     const newName = name?.trim() || `کار شماره ${toPersianDigits(tasks.length + 1)}`;
     const availableHours = calculateAvailableHours(dueDate);
     setTasks((prev) => [...prev, { name: newName, priority: priority || 5, min_duration: minD || 1, max_duration: maxD || 1.5, due_date: dueDate, available_hours: availableHours }]);
-    setName("");
-    setPriority(5);
-    setMinD(1.0);
-    setMaxD(1.5);
   }
 
   function clearTasks() { setTasks([]); setPlan(null); }
