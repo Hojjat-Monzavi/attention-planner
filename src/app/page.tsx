@@ -24,7 +24,7 @@ type Task = {
 const LS_TASKS_KEY = "planner_tasks_v2";
 const LS_SCHEDULE_KEY = "planner_schedule_v1";
 const LS_SETTINGS_KEY = "planner_settings_v1";
-const MODEL_CACHE_KEY = "onnx_model_cache";
+const MODEL_CACHE_KEY = "onnx_model_cache_v2";
 const MODEL_URL = "/models/attention_planner.onnx";
 
 export default function Page() {
@@ -36,7 +36,7 @@ export default function Page() {
   const [dueDate, setDueDate] = useState("");
   const [dailyHours, setDailyHours] = useState(8);
   const [weekendHours, setWeekendHours] = useState(4);
-  const [rest, setRest] = useState(1.2);
+  const [rest, setRest] = useState(1);
   const [plan, setPlan] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -289,72 +289,72 @@ export default function Page() {
   }
 
   return (
-    <main dir="rtl" className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 md:p-8" style={{ fontFamily: "Vazir, Vazirmatn, sans-serif" }}>
+    <main dir="rtl" className="min-h-screen bg-white p-4 md:p-8">
       <style dangerouslySetInnerHTML={{ __html: `@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css'); html, body { direction: rtl; }` }} />
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-4xl mx-auto space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-3xl mx-auto space-y-6">
         <div className="text-center space-y-2 mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"> برنامه‌ریز هوشمند  </h1>
-          <p className="text-slate-600">برنامه ریزی و اولیت بندی با کمک شبکه های عصبی مصنوعی و مکانیسم Attention</p>
-          {modelReady ? ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium"> <div className="w-2 h-2 bg-green-500 rounded-full"></div> مدل هوش مصنوعی آماده است </div> ) : 
-                       ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> در حال بارگذاری مدل... </div> )}
+          <h1 className="text-3xl font-bold text-black"> برنامه‌ریز هوشمند  </h1>
+          <p className="text-gray-600">برنامه ریزی و اولیت بندی با کمک شبکه های عصبی مصنوعی و مکانیسم Attention</p>
+          {modelReady ? ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <div className="w-2 h-2 bg-green-500 rounded-full"></div> مدل هوش مصنوعی آماده است </div> ) : 
+                       ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> در حال بارگذاری مدل... </div> )}
         </div>
-        <Card className="shadow-lg border-indigo-100">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50"> <CardTitle className="text-xl font-semibold flex items-center gap-2"> <PlusCircle className="text-indigo-600" size={20} /> افزودن تکلیف جدید </CardTitle> </CardHeader>
+        <Card className="border-gray-300 bg-white">
+          <CardHeader className="bg-gray-50"> <CardTitle className="text-lg font-semibold flex items-center gap-2"> <PlusCircle className="text-gray-700" size={18} /> افزودن تکلیف جدید </CardTitle> </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium">عنوان تکلیف</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`مثال: مطالعه فیزیولوژی`} className="mt-1" />
+                  <Label className="text-sm font-medium text-gray-800">عنوان تکلیف</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`مثال: مطالعه فیزیولوژی`} className="mt-1 border-gray-300" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium flex items-center gap-2"> <Calendar size={14} /> مهلت انجام </Label>
-                  <DatePicker calendar={persian} locale={persian_fa} value={isoToJalaliDateObject(dueDate)} onChange={(d: any) => { try { const jsd: Date = d.toDate(); const iso = jsd.toISOString().split("T")[0]; setDueDate(iso); } catch (e) { console.error(e); } }} format="YYYY/MM/DD" inputClass="w-full mt-1" />
+                  <Label className="text-sm font-medium flex items-center gap-2 text-gray-800"> <Calendar size={14} /> مهلت انجام </Label>
+                  <DatePicker calendar={persian} locale={persian_fa} value={isoToJalaliDateObject(dueDate)} onChange={(d: any) => { try { const jsd: Date = d.toDate(); const iso = jsd.toISOString().split("T")[0]; setDueDate(iso); } catch (e) { console.error(e); } }} format="YYYY/MM/DD" inputClass="w-full mt-1 border-gray-300" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">اولویت</Label>
-                  <Input type="number" min={1} max={10} value={priority || ""} onChange={(e) => setPriority(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۵" className="mt-1" />
-                  <p className="text-xs text-slate-500 mt-1">عددی بین ۱ تا ۱۰</p>
+                  <Label className="text-sm font-medium text-gray-800">اولویت</Label>
+                  <Input type="number" min={1} max={10} value={priority || ""} onChange={(e) => setPriority(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۵" className="mt-1 border-gray-300" />
+                  <p className="text-xs text-gray-500 mt-1">عددی بین ۱ تا ۱۰</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">حداقل زمان</Label>
-                  <Input type="number" step="0.5" min={0} value={minD || ""} onChange={(e) => setMinD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱" className="mt-1" />
-                  <p className="text-xs text-slate-500 mt-1">(ساعت)</p>
+                  <Label className="text-sm font-medium text-gray-800">حداقل زمان</Label>
+                  <Input type="number" step="0.5" min={0} value={minD || ""} onChange={(e) => setMinD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱" className="mt-1 border-gray-300" />
+                  <p className="text-xs text-gray-500 mt-1">(ساعت)</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">حداکثر زمان</Label>
-                  <Input type="number" step="0.5" min={0} value={maxD || ""} onChange={(e) => setMaxD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۵" className="mt-1" />
-                  <p className="text-xs text-slate-500 mt-1">(ساعت)</p>
+                  <Label className="text-sm font-medium text-gray-800">حداکثر زمان</Label>
+                  <Input type="number" step="0.5" min={0} value={maxD || ""} onChange={(e) => setMaxD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۵" className="mt-1 border-gray-300" />
+                  <p className="text-xs text-gray-500 mt-1">(ساعت)</p>
                 </div>
               </div>
-              {dueDate && ( <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200"> <p className="text-sm text-indigo-900"> <strong>زمان در دسترس شما:</strong> {toPersianDigits(calculateAvailableHours(dueDate).toFixed(1))} ساعت <span className="text-indigo-600"> · {formatDueDate(dueDate)}</span> </p> </div> )}
+              {dueDate && ( <div className="p-3 bg-gray-100 rounded-lg border border-gray-300"> <p className="text-sm text-gray-900"> <strong>زمان در دسترس شما:</strong> {toPersianDigits(calculateAvailableHours(dueDate).toFixed(1))} ساعت <span className="text-gray-700"> · {formatDueDate(dueDate)}</span> </p> </div> )}
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button onClick={addTask} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" disabled={!dueDate}> <PlusCircle size={16} className="ml-2" /> افزودن تکلیف </Button>
-                <Button variant="outline" onClick={() => setShowSettings(!showSettings)}> <Settings size={16} className="ml-2" /> تنظیمات </Button>
-                <Button variant="outline" onClick={exportTasks}> <Download size={16} className="ml-2" /> دریافت خروجی </Button>
-                {tasks.length > 0 && (<Button variant="destructive" onClick={clearTasks}>پاک‌ کردن همه</Button>)}
+                <Button onClick={addTask} className="bg-black text-white hover:bg-gray-800" disabled={!dueDate}> <PlusCircle size={16} className="ml-2" /> افزودن تکلیف </Button>
+                <Button variant="outline" onClick={() => setShowSettings(!showSettings)} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Settings size={16} className="ml-2" /> تنظیمات </Button>
+                <Button variant="outline" onClick={exportTasks} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Download size={16} className="ml-2" /> دریافت خروجی </Button>
+                {tasks.length > 0 && (<Button variant="outline" onClick={clearTasks} className="border-red-300 text-red-700 hover:bg-red-50">پاک‌ کردن همه</Button>)}
               </div>
             </div>
           </CardContent>
         </Card>
-        <AnimatePresence> {showSettings && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}> <Card className="shadow-md border-slate-200"> <CardHeader> <CardTitle className="text-lg font-semibold">تنظیمات برنامه‌ریزی</CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> <div> <Label className="text-sm font-medium">ساعات کاری (روزهای عادی)</Label> <Input type="number" step="0.5" min={0} value={dailyHours || ""} onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۸" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">شنبه تا چهارشنبه</p> </div> <div> <Label className="text-sm font-medium">ساعات کاری (آخر هفته)</Label> <Input type="number" step="0.5" min={0} value={weekendHours || ""} onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۴" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">پنجشنبه و جمعه</p> </div> <div> <Label className="text-sm font-medium">ضریب استراحت</Label> <Input type="number" step="0.1" min={1} value={rest || ""} onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۲" className="mt-1" /> <p className="text-xs text-slate-500 mt-1">برای محاسبه زمان استراحت بین کارها</p> </div> </div> <div className="mt-4 pt-4 border-t"> <Button variant="outline" size="sm" onClick={clearCache}> پاک‌سازی حافظه پنهان مدل </Button> <p className="text-xs text-slate-500 mt-2">برای دریافت آخرین نسخه مدل، حافظه پنهان را پاک کنید.</p> </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
-        <Card className="shadow-md">
-          <CardHeader> <CardTitle className="text-lg font-semibold">لیست تکالیف ({toPersianDigits(tasks.length)})</CardTitle> </CardHeader>
+        <AnimatePresence> {showSettings && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">تنظیمات برنامه‌ریزی</CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> <div> <Label className="text-sm font-medium text-gray-800">ساعات کاری (روزهای عادی)</Label> <Input type="number" step="0.5" min={0} value={dailyHours || ""} onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۸" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">شنبه تا چهارشنبه</p> </div> <div> <Label className="text-sm font-medium text-gray-800">ساعات کاری (آخر هفته)</Label> <Input type="number" step="0.5" min={0} value={weekendHours || ""} onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۴" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">پنجشنبه و جمعه</p> </div> <div> <Label className="text-sm font-medium text-gray-800">ضریب استراحت</Label> <Input type="number" step="0.1" min={1} value={rest || ""} onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۲" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">برای محاسبه زمان استراحت بین کارها</p> </div> </div> <div className="mt-4 pt-4 border-t border-gray-200"> <Button variant="outline" size="sm" onClick={clearCache} className="border-gray-300 text-gray-700 hover:bg-gray-100"> پاک‌سازی حافظه پنهان مدل </Button> <p className="text-xs text-gray-500 mt-2">برای دریافت آخرین نسخه مدل، حافظه پنهان را پاک کنید.</p> </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
+        <Card className="border-gray-300 bg-white">
+          <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">لیست تکالیف ({toPersianDigits(tasks.length)})</CardTitle> </CardHeader>
           <CardContent>
-            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-slate-400" size={32} /> </div> <p className="text-slate-500">هنوز تکلیفی ثبت نکرده‌اید. اولین تکلیف خود را اضافه کنید!</p> </div> ) : 
+            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-gray-400" size={32} /> </div> <p className="text-gray-500">هنوز تکلیفی ثبت نکرده‌اید. اولین تکلیف خود را اضافه کنید!</p> </div> ) : 
             ( <div className="space-y-3"> {tasks.map((t, i) => {
                 const overdue = isOverdue(t.due_date);
                 return (
                   <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: i * 0.05 }}
-                    className={`group p-4 rounded-lg border bg-white hover:shadow-md transition-all ${ overdue ? "border-red-200 bg-red-50/70 text-slate-500" : "border-slate-200 hover:border-indigo-300" }`}>
+                    className={`group p-4 rounded-lg border bg-white transition-all ${ overdue ? "border-red-200 bg-red-50/70 text-slate-500" : "border-gray-300" }`}>
                     <div className="flex items-start gap-4">
-                      <div className={`w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg text-white font-bold text-lg ${ overdue ? "bg-gradient-to-br from-red-400 to-rose-500" : "bg-gradient-to-br from-indigo-500 to-purple-600" }`}>
+                      <div className={`w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg font-bold text-lg ${ overdue ? "bg-gray-300 text-gray-500" : "bg-black text-white" }`}>
                         {overdue ? <AlertTriangle size={24}/> : toPersianDigits(i + 1)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className={`font-semibold mb-2 ${ overdue ? "line-through text-red-800" : "text-slate-900" }`}> {t.name} </h3>
+                        <h3 className={`font-semibold mb-2 ${ overdue ? "line-through text-gray-500" : "text-gray-900" }`}> {t.name} </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                           <div> <span className="font-medium">اولویت:</span> {toPersianDigits(t.priority)}/۱۰ </div>
                           <div> <span className="font-medium">زمان:</span> {toPersianDigits(t.min_duration)}-{toPersianDigits(t.max_duration)} ساعت </div>
@@ -362,7 +362,7 @@ export default function Page() {
                           <div> <span className="font-medium">زمان موجود:</span> {toPersianDigits(getTaskAvailableHours(t).toFixed(1))} ساعت </div>
                         </div>
                       </div>
-                      <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTasks((prev) => prev.filter((_, idx) => idx !== i))}> <Trash2 size={16} className="text-red-500" /> </Button>
+                      <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTasks((prev) => prev.filter((_, idx) => idx !== i))}> <Trash2 size={16} className="text-gray-500" /> </Button>
                     </div>
                   </motion.div>
                 );
@@ -370,10 +370,10 @@ export default function Page() {
             )}
           </CardContent>
         </Card>
-        {tasks.length > 0 && ( <div className="flex flex-col items-center gap-3"> {!modelReady && ( <div className="text-sm text-amber-600 flex items-center gap-2"> <Loader2 className="w-4 h-4 animate-spin" /> در انتظار بارگذاری مدل... </div> )} <div className="flex gap-4"> <Button onClick={() => getPlan(true)} disabled={loading || !modelReady} size="lg" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 px-8"> {loading ? ( <> <Loader2 className="animate-spin ml-2" size={18} /> در حال ساخت برنامه... </> ) : ( "ساخت برنامه بهینه" )} </Button> <Button variant="outline" onClick={() => getPlan(false)} disabled={loading || !modelReady} size="lg"> ساخت برنامه نیمه تصادفی </Button> </div> </div> )}
-        <AnimatePresence> {plan && ( <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}> <Card className="shadow-lg border-green-200 bg-gradient-to-br from-green-50 to-emerald-50"> <CardHeader> <CardTitle className="text-xl font-semibold text-green-900 flex items-center gap-2"> <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white text-sm">✓</div> برنامه پیشنهادی شما </CardTitle> </CardHeader> <CardContent> <div className="space-y-3"> {plan.map((idx, pos) => { const t = tasks[idx]; if (!t) return null; const avg = ((t.min_duration + t.max_duration) / 2).toFixed(1); return ( <motion.div key={pos} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: pos * 0.08 }} className="flex items-center gap-4 p-4 rounded-lg bg-white border border-green-200 shadow-sm"> <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white flex items-center justify-center font-bold"> {toPersianDigits(pos + 1)} </div> <div className="flex-1 min-w-0"> <h4 className="font-semibold text-slate-900">{t.name}</h4> <div className="flex flex-wrap gap-3 mt-1 text-xs text-slate-600"> <span>حدود {toPersianDigits(avg)} ساعت</span> <span>·</span> <span>اولویت {toPersianDigits(t.priority)}</span> <span>·</span> <span>مهلت {formatDueDate(t.due_date)}</span> </div> </div> </motion.div> ); })} </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
+        {tasks.length > 0 && ( <div className="flex flex-col items-center gap-3"> {!modelReady && ( <div className="text-sm text-gray-600 flex items-center gap-2"> <Loader2 className="w-4 h-4 animate-spin" /> در انتظار بارگذاری مدل... </div> )} <div className="flex gap-4"> <Button onClick={() => getPlan(true)} disabled={loading || !modelReady} size="lg" className="bg-black text-white hover:bg-gray-800 px-8"> {loading ? ( <> <Loader2 className="animate-spin ml-2" size={18} /> در حال ساخت برنامه... </> ) : ( "ساخت برنامه بهینه" )} </Button> <Button variant="outline" onClick={() => getPlan(false)} disabled={loading || !modelReady} size="lg" className="border-gray-300 text-gray-700 hover:bg-gray-100"> ساخت برنامه نیمه تصادفی </Button> </div> </div> )}
+        <AnimatePresence> {plan && ( <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2"> <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white text-sm">✓</div> برنامه پیشنهادی شما </CardTitle> </CardHeader> <CardContent> <div className="space-y-3"> {plan.map((idx, pos) => { const t = tasks[idx]; if (!t) return null; const avg = ((t.min_duration + t.max_duration) / 2).toFixed(1); return ( <motion.div key={pos} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: pos * 0.08 }} className="flex items-center gap-4 p-4 rounded-lg bg-white border border-gray-300"> <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold"> {toPersianDigits(pos + 1)} </div> <div className="flex-1 min-w-0"> <h4 className="font-semibold text-gray-900">{t.name}</h4> <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-600"> <span>حدود {toPersianDigits(avg)} ساعت</span> <span>·</span> <span>اولویت {toPersianDigits(t.priority)}</span> <span>·</span> <span>مهلت {formatDueDate(t.due_date)}</span> </div> </div> </motion.div> ); })} </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
       </motion.div>
-      <footer className="mt-12 py-6 text-center text-slate-500 text-sm border-t border-slate-200">
+      <footer className="mt-12 py-6 text-center text-gray-500 text-sm border-t border-gray-200">
         توسعه داده شده توسط حجت منزوی
       </footer>
     </main>

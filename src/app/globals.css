@@ -2,11 +2,19 @@
 @import "tw-animate-css";
 
 
-html {
-  direction: rtl;
-  font-family: 'Vazirmatn', sans-serif;
+body {
+  font-family: "Vazirmatn", "Geist Sans", sans-serif;
 }
 
+@font-face {
+  font-family: "Vazirmatn";
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF; /* Arabic/Persian */
+}
+
+@font-face {
+  font-family: "Geist Sans";
+  unicode-range: U+0000-00FF; /* Basic Latin */
+}
 
 @custom-variant dark (&:is(.dark *));
 
