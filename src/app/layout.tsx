@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Attention Planner - AI-Powered Task Management",
-  description: "An advanced todo planner that leverages neural networks to help you focus on what matters most. Optimize your productivity with intelligent task prioritization and attention management.",
+  description: "An advanced todo planner that leverages neural networks to help you focus on what matters most. Optimize your productivity with intelligent task prioritization.",
 };
 
 export default function RootLayout({

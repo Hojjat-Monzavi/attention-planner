@@ -19,7 +19,6 @@ type Task = {
   min_duration: number;
   max_duration: number;
   due_date: string; // ISO YYYY-MM-DD
-  available_hours: number;
 };
 
 const LS_TASKS_KEY = "planner_tasks_v2";
@@ -89,7 +88,6 @@ export default function Page() {
             min_duration: t.min_duration ?? 1,
             max_duration: t.max_duration ?? 1.5,
             due_date: t.due_date || new Date().toISOString().split("T")[0],
-            available_hours: t.available_hours ?? 0,
           })));
         }
       } catch (err) { console.error("Failed to parse tasks", err); }
@@ -182,10 +180,11 @@ export default function Page() {
     return Math.max(0, Math.round(totalHours * 10) / 10);
   }
 
-  function taskToVec(t: { priority: number; min_duration: number; max_duration: number; available_hours: number }, currentTime = 0): number[] {
+  function taskToVec(t: { priority: number; min_duration: number; max_duration: number; due_date: string }, currentTime = 0): number[] {
     const avgDur = (t.min_duration + t.max_duration) / 2;
-    const slack = Math.max(0, t.available_hours - currentTime - avgDur);
-    return [t.priority/10, avgDur/4, t.available_hours/30, slack/20, currentTime/20, (t.priority * avgDur)/40];
+    const availableHours = calculateAvailableHours(t.due_date);
+    const slack = Math.max(0, availableHours - currentTime - avgDur);
+    return [t.priority/10, avgDur/4, availableHours/30, slack/20, currentTime/20, (t.priority * avgDur)/40];
   }
 
   async function getPlan(greedy = true) {
@@ -202,15 +201,15 @@ export default function Page() {
         return;
       }
       
-      // Map only non-overdue tasks to API format
+      // Map only non-overdue tasks to API format (keeping the due_date field for dynamic calculation)
       const taskIndicesMap = tasks.map((_, i) => i).filter(i => !isOverdue(tasks[i].due_date));
-      const apiTasks = nonOverdueTasks.map(({ available_hours, ...rest }) => ({ ...rest, due_time: available_hours }));
+      const apiTasks = [...nonOverdueTasks]; // Keep the original task structure
       
       const planIndices: number[] = [];
       const remaining = apiTasks.map((_, i) => i);
       let currentTime = 0;
       while (remaining.length > 0) {
-        const feats = remaining.map((i) => taskToVec({ priority: apiTasks[i].priority, min_duration: apiTasks[i].min_duration, max_duration: apiTasks[i].max_duration, available_hours: apiTasks[i].due_time }, currentTime));
+        const feats = remaining.map((i) => taskToVec(apiTasks[i], currentTime));
         const tensor = new ort.Tensor("float32", new Float32Array(feats.flat()), [feats.length, 6]);
         const maskTensor = new ort.Tensor("float32", new Float32Array(feats.length).fill(1.0), [feats.length]);
         const restTensor = new ort.Tensor("float32", Float32Array.from([rest]), [1]);
@@ -235,8 +234,7 @@ export default function Page() {
 
   function addTask() {
     const newName = name?.trim() || `تکلیف شماره ${toPersianDigits(tasks.length + 1)}`;
-    const availableHours = calculateAvailableHours(dueDate);
-    setTasks((prev) => [...prev, { name: newName, priority: priority || 5, min_duration: minD || 1, max_duration: maxD || 1.5, due_date: dueDate, available_hours: availableHours }]);
+    setTasks((prev) => [...prev, { name: newName, priority: priority || 5, min_duration: minD || 1, max_duration: maxD || 1.5, due_date: dueDate }]);
   }
 
   function clearTasks() { setTasks([]); setPlan(null); }
@@ -276,6 +274,11 @@ export default function Page() {
   const isOverdue = (dateStr: string) => {
     const taskDate = new Date(`${dateStr}T23:59:59`);
     return taskDate < new Date();
+  };
+
+  // Helper function to get available hours dynamically for a task
+  const getTaskAvailableHours = (task: Task): number => {
+    return calculateAvailableHours(task.due_date);
   };
 
   function isoToJalaliDateObject(iso?: string) {
@@ -356,7 +359,7 @@ export default function Page() {
                           <div> <span className="font-medium">اولویت:</span> {toPersianDigits(t.priority)}/۱۰ </div>
                           <div> <span className="font-medium">زمان:</span> {toPersianDigits(t.min_duration)}-{toPersianDigits(t.max_duration)} ساعت </div>
                           <div className={`${overdue ? 'font-bold text-red-600' : ''}`}> <span className="font-medium">مهلت:</span> {formatDueDate(t.due_date)} </div>
-                          <div> <span className="font-medium">زمان موجود:</span> {toPersianDigits(t.available_hours.toFixed(1))} ساعت </div>
+                          <div> <span className="font-medium">زمان موجود:</span> {toPersianDigits(getTaskAvailableHours(t).toFixed(1))} ساعت </div>
                         </div>
                       </div>
                       <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTasks((prev) => prev.filter((_, idx) => idx !== i))}> <Trash2 size={16} className="text-red-500" /> </Button>
