@@ -24,6 +24,7 @@ type Task = {
 
 const LS_TASKS_KEY = "planner_tasks_v2";
 const LS_SCHEDULE_KEY = "planner_schedule_v1";
+const LS_SETTINGS_KEY = "planner_settings_v1";
 const MODEL_CACHE_KEY = "onnx_model_cache";
 const MODEL_URL = "/models/attention_planner.onnx";
 
@@ -93,6 +94,7 @@ export default function Page() {
         }
       } catch (err) { console.error("Failed to parse tasks", err); }
     }
+    
     const rawSchedule = localStorage.getItem(LS_SCHEDULE_KEY);
     if (rawSchedule) {
       try {
@@ -101,6 +103,15 @@ export default function Page() {
         setWeekendHours(parsed.weekendHours ?? 4);
       } catch (err) { console.error("Failed to parse schedule", err); }
     }
+    
+    const rawSettings = localStorage.getItem(LS_SETTINGS_KEY);
+    if (rawSettings) {
+      try {
+        const parsed = JSON.parse(rawSettings);
+        setRest(parsed.rest ?? 1.2);
+      } catch (err) { console.error("Failed to parse settings", err); }
+    }
+    
     const today = new Date();
     setDueDate(today.toISOString().split("T")[0]);
   }, []);
@@ -116,6 +127,12 @@ export default function Page() {
     try { localStorage.setItem(LS_SCHEDULE_KEY, JSON.stringify({ dailyHours, weekendHours })); } 
     catch (e) { console.error("Failed saving schedule", e); }
   }, [dailyHours, weekendHours]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify({ rest })); } 
+    catch (e) { console.error("Failed saving settings", e); }
+  }, [rest]);
 
   // FIX 1: Replaced with a more robust calculation function.
   function calculateAvailableHours(dueDateISO: string): number {
