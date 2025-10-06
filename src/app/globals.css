@@ -1,19 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-
 body {
   font-family: "Vazirmatn", "Geist Sans", sans-serif;
 }
 
-@font-face {
-  font-family: "Vazirmatn";
-  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF; /* Arabic/Persian */
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  unicode-range: U+0000-00FF; /* Basic Latin */
+body[dir="ltr"] {
+  font-family: "Geist Sans", "Vazirmatn", sans-serif;
 }
 
 @custom-variant dark (&:is(.dark *));

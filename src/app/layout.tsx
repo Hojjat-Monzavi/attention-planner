@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { Vazirmatn } from "next/font/google";
 import "./globals.css";
 
@@ -10,7 +10,14 @@ const vazir = Vazirmatn({
   display: 'swap', // Recommended for font performance
 });
 
-// 2. Initialize Geist Mono as a CSS variable
+// 2. Initialize Geist Sans as a CSS variable
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans", // Define the variable name
+  display: 'swap',
+});
+
+// 3. Initialize Geist Mono as a CSS variable
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono", // Define the variable name
@@ -29,9 +36,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl">
-      {/* 3. Apply both font variables to the root element */}
+      {/* 3. Apply font variables to the root element */}
       <body
-        className={`${geistMono.variable} ${vazir.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${vazir.variable} antialiased`}
       >
         {children}
       </body>

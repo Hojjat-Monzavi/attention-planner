@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Trash2, Download, PlusCircle, Loader2, Calendar, Clock, Settings, AlertTriangle } from "lucide-react";
+import { Trash2, Download, PlusCircle, Loader2, Calendar, Clock, Settings, AlertTriangle, Globe } from "lucide-react";
 import * as ort from "onnxruntime-web";
 
 import DatePicker, { DateObject } from "react-multi-date-picker";
@@ -42,10 +42,12 @@ export default function Page() {
   const [showSettings, setShowSettings] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'en' | 'fa'>('fa'); // Default to English
 
   const sessionRef = useRef<ort.InferenceSession | null>(null);
 
-  const toPersianDigits = (num: number | string) => {
+  const formatNumber = (num: number | string) => {
+    if (language !== 'fa') return String(num); // Return original if not Persian
     const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
     return String(num).replace(/[0-9]/g, (w) => persianDigits[+w]);
   };
@@ -77,6 +79,16 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    // Load language preference from localStorage
+    const savedLanguage = localStorage.getItem('preferred_language');
+    if (savedLanguage === 'en' || savedLanguage === 'fa') {
+      setLanguage(savedLanguage);
+    } else {
+      // Default to English
+      setLanguage('en');
+    }
+    
     const rawTasks = localStorage.getItem(LS_TASKS_KEY);
     if (rawTasks) {
       try {
@@ -233,7 +245,7 @@ export default function Page() {
   }
 
   function addTask() {
-    const newName = name?.trim() || `تکلیف شماره ${toPersianDigits(tasks.length + 1)}`;
+    const newName = name?.trim() || `تکلیف شماره ${formatNumber(tasks.length + 1)}`;
     setTasks((prev) => [...prev, { name: newName, priority: priority || 5, min_duration: minD || 1, max_duration: maxD || 1.5, due_date: dueDate }]);
   }
 
@@ -266,7 +278,7 @@ export default function Page() {
     if (date < today) return "مهلت گذشته";
 
     const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff > 0 && diff < 7) return `تا ${toPersianDigits(diff)} روز دیگر`;
+    if (diff > 0 && diff < 7) return `تا ${formatNumber(diff)} روز دیگر`;
     return new DateObject(date).convert(persian, persian_fa).format("D MMMM");
   }
   
@@ -288,78 +300,101 @@ export default function Page() {
     } catch (e) { return undefined; }
   }
 
+  const toggleLanguage = () => {
+    const newLanguage = language === 'en' ? 'fa' : 'en';
+    setLanguage(newLanguage);
+    localStorage.setItem('preferred_language', newLanguage);
+  };
+
+  // Translation function for English content
+  const translate = (persianText: string, englishText: string) => {
+    return language === 'en' ? englishText : persianText;
+  };
+
   return (
-    <main dir="rtl" className="min-h-screen bg-white p-4 md:p-8">
-      <style dangerouslySetInnerHTML={{ __html: `@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css'); html, body { direction: rtl; }` }} />
+    <main dir={language === 'en' ? 'ltr' : 'rtl'} className="min-h-screen bg-white p-4 md:p-8">
+      <style dangerouslySetInnerHTML={{ __html: `@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css'); html, body { direction: ${language === 'en' ? 'ltr' : 'rtl'}; }` }} />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-3xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="text-center space-y-2 flex-1">
+            <h1 className="text-3xl font-bold text-black"> {translate('برنامه‌ریز هوشمند', 'Smart Planner')} </h1>
+            <p className="text-gray-600">{translate('برنامه ریزی و اولیت بندی با کمک شبکه های عصبی مصنوعی و مکانیسم Attention', 'Planning and prioritizing using AI Neural Networks and Attention mechanism')}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={toggleLanguage}
+            className="border-gray-300 text-gray-700 hover:bg-gray-100 ml-4"
+          >
+            <Globe className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="text-center space-y-2 mb-8">
-          <h1 className="text-3xl font-bold text-black"> برنامه‌ریز هوشمند  </h1>
-          <p className="text-gray-600">برنامه ریزی و اولیت بندی با کمک شبکه های عصبی مصنوعی و مکانیسم Attention</p>
-          {modelReady ? ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <div className="w-2 h-2 bg-green-500 rounded-full"></div> مدل هوش مصنوعی آماده است </div> ) : 
-                       ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> در حال بارگذاری مدل... </div> )}
+          {modelReady ? ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <div className="w-2 h-2 bg-green-500 rounded-full"></div> {translate('مدل هوش مصنوعی آماده است', 'AI Model Ready')} </div> ) : 
+                       ( <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium"> <Loader2 className="w-3 h-3 animate-spin" /> {translate('در حال بارگذاری مدل...', 'Loading model...')} </div> )}
         </div>
         <Card className="border-gray-300 bg-white">
-          <CardHeader className="bg-gray-50"> <CardTitle className="text-lg font-semibold flex items-center gap-2"> <PlusCircle className="text-gray-700" size={18} /> افزودن تکلیف جدید </CardTitle> </CardHeader>
+          <CardHeader className="bg-gray-50"> <CardTitle className="text-lg font-semibold flex items-center gap-2"> <PlusCircle className="text-gray-700" size={18} /> {translate('افزودن تکلیف جدید', 'Add New Task')} </CardTitle> </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-gray-800">عنوان تکلیف</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`مثال: مطالعه فیزیولوژی`} className="mt-1 border-gray-300" />
+                  <Label className="text-sm font-medium text-gray-800">{translate('عنوان تکلیف', 'Task Title')}</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={translate(`مثال: مطالعه فیزیولوژی`, `e.g., Study Physiology`)} className="mt-1 border-gray-300" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium flex items-center gap-2 text-gray-800"> <Calendar size={14} /> مهلت انجام </Label>
+                  <Label className="text-sm font-medium flex items-center gap-2 text-gray-800"> <Calendar size={14} /> {translate('مهلت انجام', 'Due Date')} </Label>
                   <DatePicker calendar={persian} locale={persian_fa} value={isoToJalaliDateObject(dueDate)} onChange={(d: any) => { try { const jsd: Date = d.toDate(); const iso = jsd.toISOString().split("T")[0]; setDueDate(iso); } catch (e) { console.error(e); } }} format="YYYY/MM/DD" inputClass="w-full mt-1 border-gray-300" />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-800">اولویت</Label>
+                  <Label className="text-sm font-medium text-gray-800">{translate('اولویت', 'Priority')}</Label>
                   <Input type="number" min={1} max={10} value={priority || ""} onChange={(e) => setPriority(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۵" className="mt-1 border-gray-300" />
-                  <p className="text-xs text-gray-500 mt-1">عددی بین ۱ تا ۱۰</p>
+                  <p className="text-xs text-gray-500 mt-1">{translate('عددی بین ۱ تا ۱۰', 'Number between 1-10')}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-800">حداقل زمان</Label>
+                  <Label className="text-sm font-medium text-gray-800">{translate('حداقل زمان', 'Min Time')}</Label>
                   <Input type="number" step="0.5" min={0} value={minD || ""} onChange={(e) => setMinD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱" className="mt-1 border-gray-300" />
-                  <p className="text-xs text-gray-500 mt-1">(ساعت)</p>
+                  <p className="text-xs text-gray-500 mt-1">{translate('(ساعت)', '(hours)')}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-800">حداکثر زمان</Label>
+                  <Label className="text-sm font-medium text-gray-800">{translate('حداکثر زمان', 'Max Time')}</Label>
                   <Input type="number" step="0.5" min={0} value={maxD || ""} onChange={(e) => setMaxD(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۵" className="mt-1 border-gray-300" />
-                  <p className="text-xs text-gray-500 mt-1">(ساعت)</p>
+                  <p className="text-xs text-gray-500 mt-1">{translate('(ساعت)', '(hours)')}</p>
                 </div>
               </div>
-              {dueDate && ( <div className="p-3 bg-gray-100 rounded-lg border border-gray-300"> <p className="text-sm text-gray-900"> <strong>زمان در دسترس شما:</strong> {toPersianDigits(calculateAvailableHours(dueDate).toFixed(1))} ساعت <span className="text-gray-700"> · {formatDueDate(dueDate)}</span> </p> </div> )}
+              {dueDate && ( <div className="p-3 bg-gray-100 rounded-lg border border-gray-300"> <p className="text-sm text-gray-900"> <strong>{translate('زمان در دسترس شما:', 'Available time:')}</strong> {formatNumber(calculateAvailableHours(dueDate).toFixed(1))} {translate('ساعت', 'hours')} <span className="text-gray-700"> · {formatDueDate(dueDate)}</span> </p> </div> )}
               <div className="flex flex-wrap gap-3 pt-2">
-                <Button onClick={addTask} className="bg-black text-white hover:bg-gray-800" disabled={!dueDate}> <PlusCircle size={16} className="ml-2" /> افزودن تکلیف </Button>
-                <Button variant="outline" onClick={() => setShowSettings(!showSettings)} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Settings size={16} className="ml-2" /> تنظیمات </Button>
-                <Button variant="outline" onClick={exportTasks} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Download size={16} className="ml-2" /> دریافت خروجی </Button>
-                {tasks.length > 0 && (<Button variant="outline" onClick={clearTasks} className="border-red-300 text-red-700 hover:bg-red-50">پاک‌ کردن همه</Button>)}
+                <Button onClick={addTask} className="bg-black text-white hover:bg-gray-800" disabled={!dueDate}> <PlusCircle size={16} className={language === 'en' ? "mr-2" : "ml-2"} /> {translate('افزودن تکلیف', 'Add Task')} </Button>
+                <Button variant="outline" onClick={() => setShowSettings(!showSettings)} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Settings size={16} className={language === 'en' ? "mr-2" : "ml-2"} /> {translate('تنظیمات', 'Settings')} </Button>
+                <Button variant="outline" onClick={exportTasks} className="border-gray-300 text-gray-700 hover:bg-gray-100"> <Download size={16} className={language === 'en' ? "mr-2" : "ml-2"} /> {translate('دریافت خروجی', 'Export')} </Button>
+                {tasks.length > 0 && (<Button variant="outline" onClick={clearTasks} className="border-red-300 text-red-700 hover:bg-red-50">{translate('پاک‌ کردن همه', 'Clear All')}</Button>)}
               </div>
             </div>
           </CardContent>
         </Card>
-        <AnimatePresence> {showSettings && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">تنظیمات برنامه‌ریزی</CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> <div> <Label className="text-sm font-medium text-gray-800">ساعات کاری (روزهای عادی)</Label> <Input type="number" step="0.5" min={0} value={dailyHours || ""} onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۸" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">شنبه تا چهارشنبه</p> </div> <div> <Label className="text-sm font-medium text-gray-800">ساعات کاری (آخر هفته)</Label> <Input type="number" step="0.5" min={0} value={weekendHours || ""} onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۴" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">پنجشنبه و جمعه</p> </div> <div> <Label className="text-sm font-medium text-gray-800">ضریب استراحت</Label> <Input type="number" step="0.1" min={1} value={rest || ""} onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۲" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">برای محاسبه زمان استراحت بین کارها</p> </div> </div> <div className="mt-4 pt-4 border-t border-gray-200"> <Button variant="outline" size="sm" onClick={clearCache} className="border-gray-300 text-gray-700 hover:bg-gray-100"> پاک‌سازی حافظه پنهان مدل </Button> <p className="text-xs text-gray-500 mt-2">برای دریافت آخرین نسخه مدل، حافظه پنهان را پاک کنید.</p> </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
+        <AnimatePresence> {showSettings && ( <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">{translate('تنظیمات برنامه‌ریزی', 'Scheduling Settings')}</CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> <div> <Label className="text-sm font-medium text-gray-800">{translate('ساعات کاری (روزهای عادی)', 'Work Hours (Regular Days)')}</Label> <Input type="number" step="0.5" min={0} value={dailyHours || ""} onChange={(e) => setDailyHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۸" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">{translate('شنبه تا چهارشنبه', 'Saturday to Wednesday')}</p> </div> <div> <Label className="text-sm font-medium text-gray-800">{translate('ساعات کاری (آخر هفته)', 'Work Hours (Weekend)')}</Label> <Input type="number" step="0.5" min={0} value={weekendHours || ""} onChange={(e) => setWeekendHours(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۴" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">{translate('پنجشنبه و جمعه', 'Thursday & Friday')}</p> </div> <div> <Label className="text-sm font-medium text-gray-800">{translate('ضریب استراحت', 'Rest Factor')}</Label> <Input type="number" step="0.1" min={1} value={rest || ""} onChange={(e) => setRest(e.target.value === "" ? 0 : Number(e.target.value))} placeholder="۱.۲" className="mt-1 border-gray-300" /> <p className="text-xs text-gray-500 mt-1">{translate('برای محاسبه زمان استراحت بین کارها', 'For calculating rest time between tasks')}</p> </div> </div> <div className="mt-4 pt-4 border-t border-gray-200"> <Button variant="outline" size="sm" onClick={clearCache} className="border-gray-300 text-gray-700 hover:bg-gray-100"> {translate('پاک‌سازی حافظه پنهان مدل', 'Clear Model Cache')} </Button> <p className="text-xs text-gray-500 mt-2">{translate('برای دریافت آخرین نسخه مدل، حافظه پنهان را پاک کنید.', 'Clear cache to get the latest model version.')}</p> </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
         <Card className="border-gray-300 bg-white">
-          <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">لیست تکالیف ({toPersianDigits(tasks.length)})</CardTitle> </CardHeader>
+          <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800">{translate(`لیست تکالیف (${formatNumber(tasks.length)})`, `Tasks List (${tasks.length})`)}</CardTitle> </CardHeader>
           <CardContent>
-            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-gray-400" size={32} /> </div> <p className="text-gray-500">هنوز تکلیفی ثبت نکرده‌اید. اولین تکلیف خود را اضافه کنید!</p> </div> ) : 
-            ( <div className="space-y-3"> {tasks.map((t, i) => {
-                const overdue = isOverdue(t.due_date);
+            {tasks.length === 0 ? ( <div className="text-center py-12"> <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"> <Calendar className="text-gray-400" size={32} /> </div> <p className="text-gray-500">{translate('هنوز تکلیفی ثبت نکرده‌اید. اولین تکلیف خود را اضافه کنید!', 'No tasks registered yet. Add your first task!')}</p> </div> ) : 
+            ( <div className="space-y-3"> {tasks.map((task, i) => {
+                const overdue = isOverdue(task.due_date);
                 return (
                   <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: i * 0.05 }}
                     className={`group p-4 rounded-lg border bg-white transition-all ${ overdue ? "border-red-200 bg-red-50/70 text-slate-500" : "border-gray-300" }`}>
                     <div className="flex items-start gap-4">
                       <div className={`w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-lg font-bold text-lg ${ overdue ? "bg-gray-300 text-gray-500" : "bg-black text-white" }`}>
-                        {overdue ? <AlertTriangle size={24}/> : toPersianDigits(i + 1)}
+                        {overdue ? <AlertTriangle size={24}/> : formatNumber(i + 1)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className={`font-semibold mb-2 ${ overdue ? "line-through text-gray-500" : "text-gray-900" }`}> {t.name} </h3>
+                        <h3 className={`font-semibold mb-2 ${ overdue ? "line-through text-gray-500" : "text-gray-900" }`}> {task.name} </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                          <div> <span className="font-medium">اولویت:</span> {toPersianDigits(t.priority)}/۱۰ </div>
-                          <div> <span className="font-medium">زمان:</span> {toPersianDigits(t.min_duration)}-{toPersianDigits(t.max_duration)} ساعت </div>
-                          <div className={`${overdue ? 'font-bold text-red-600' : ''}`}> <span className="font-medium">مهلت:</span> {formatDueDate(t.due_date)} </div>
-                          <div> <span className="font-medium">زمان موجود:</span> {toPersianDigits(getTaskAvailableHours(t).toFixed(1))} ساعت </div>
+                          <div> <span className="font-medium">{translate('اولویت:', 'Priority:')}</span> {formatNumber(task.priority)}/{formatNumber(10)} </div>
+                          <div> <span className="font-medium">{translate('زمان:', 'Time:')}</span> {formatNumber(task.min_duration)}-{formatNumber(task.max_duration)} {translate('ساعت', 'hours')} </div>
+                          <div className={`${overdue ? 'font-bold text-red-600' : ''}`}> <span className="font-medium">{translate('مهلت:', 'Due:')}</span> {formatDueDate(task.due_date)} </div>
+                          <div> <span className="font-medium">{translate('زمان موجود:', 'Available:')}</span> {formatNumber(getTaskAvailableHours(task).toFixed(1))} {translate('ساعت', 'hours')} </div>
                         </div>
                       </div>
                       <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setTasks((prev) => prev.filter((_, idx) => idx !== i))}> <Trash2 size={16} className="text-gray-500" /> </Button>
@@ -370,11 +405,11 @@ export default function Page() {
             )}
           </CardContent>
         </Card>
-        {tasks.length > 0 && ( <div className="flex flex-col items-center gap-3"> {!modelReady && ( <div className="text-sm text-gray-600 flex items-center gap-2"> <Loader2 className="w-4 h-4 animate-spin" /> در انتظار بارگذاری مدل... </div> )} <div className="flex gap-4"> <Button onClick={() => getPlan(true)} disabled={loading || !modelReady} size="lg" className="bg-black text-white hover:bg-gray-800 px-8"> {loading ? ( <> <Loader2 className="animate-spin ml-2" size={18} /> در حال ساخت برنامه... </> ) : ( "ساخت برنامه بهینه" )} </Button> <Button variant="outline" onClick={() => getPlan(false)} disabled={loading || !modelReady} size="lg" className="border-gray-300 text-gray-700 hover:bg-gray-100"> ساخت برنامه نیمه تصادفی </Button> </div> </div> )}
-        <AnimatePresence> {plan && ( <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2"> <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white text-sm">✓</div> برنامه پیشنهادی شما </CardTitle> </CardHeader> <CardContent> <div className="space-y-3"> {plan.map((idx, pos) => { const t = tasks[idx]; if (!t) return null; const avg = ((t.min_duration + t.max_duration) / 2).toFixed(1); return ( <motion.div key={pos} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: pos * 0.08 }} className="flex items-center gap-4 p-4 rounded-lg bg-white border border-gray-300"> <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold"> {toPersianDigits(pos + 1)} </div> <div className="flex-1 min-w-0"> <h4 className="font-semibold text-gray-900">{t.name}</h4> <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-600"> <span>حدود {toPersianDigits(avg)} ساعت</span> <span>·</span> <span>اولویت {toPersianDigits(t.priority)}</span> <span>·</span> <span>مهلت {formatDueDate(t.due_date)}</span> </div> </div> </motion.div> ); })} </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
+        {tasks.length > 0 && ( <div className="flex flex-col items-center gap-3"> {!modelReady && ( <div className="text-sm text-gray-600 flex items-center gap-2"> <Loader2 className="w-4 h-4 animate-spin" /> {translate('در انتظار بارگذاری مدل...', 'Waiting for model to load...')} </div> )} <div className="flex gap-4"> <Button onClick={() => getPlan(true)} disabled={loading || !modelReady} size="lg" className="bg-black text-white hover:bg-gray-800 px-8"> {loading ? ( <> <Loader2 className={`animate-spin ${language === 'en' ? "mr-2" : "ml-2"}`} size={18} /> {translate('در حال ساخت برنامه...', 'Generating plan...')} </> ) : ( translate('ساخت برنامه بهینه', 'Generate Optimal Plan') )} </Button> <Button variant="outline" onClick={() => getPlan(false)} disabled={loading || !modelReady} size="lg" className="border-gray-300 text-gray-700 hover:bg-gray-100"> {translate('ساخت برنامه نیمه تصادفی', 'Generate Semi-Random Plan')} </Button> </div> </div> )}
+        <AnimatePresence> {plan && ( <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}> <Card className="border-gray-300 bg-white"> <CardHeader> <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2"> <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white text-sm">✓</div> {translate('برنامه پیشنهادی شما', 'Your suggested plan')} </CardTitle> </CardHeader> <CardContent> <div className="space-y-3"> {plan.map((idx, pos) => { const task = tasks[idx]; if (!task) return null; const avg = ((task.min_duration + task.max_duration) / 2).toFixed(1); return ( <motion.div key={pos} initial={{ opacity: 0, x: language === 'en' ? 20 : -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, delay: pos * 0.08 }} className="flex items-center gap-4 p-4 rounded-lg bg-white border border-gray-300"> <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold"> {formatNumber(pos + 1)} </div> <div className="flex-1 min-w-0"> <h4 className="font-semibold text-gray-900">{task.name}</h4> <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-600"> <span>{translate('حدود', 'Approximately')} {formatNumber(avg)} {translate('ساعت', 'hours')}</span> <span>·</span> <span>{translate('اولویت', 'Priority')} {formatNumber(task.priority)}</span> <span>·</span> <span>{translate('مهلت', 'Due')} {formatDueDate(task.due_date)}</span> </div> </div> </motion.div> ); })} </div> </CardContent> </Card> </motion.div> )} </AnimatePresence>
       </motion.div>
       <footer className="mt-12 py-6 text-center text-gray-500 text-sm border-t border-gray-200">
-        توسعه داده شده توسط حجت منزوی
+        {translate('توسعه داده شده توسط حجت منزوی', 'Developed by Hojjat Manzouei')}
       </footer>
     </main>
   );
