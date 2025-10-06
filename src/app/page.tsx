@@ -193,7 +193,19 @@ export default function Page() {
     setLoading(true);
     setPlan(null);
     try {
-      const apiTasks = tasks.map(({ available_hours, ...rest }) => ({ ...rest, due_time: available_hours }));
+      // Filter out overdue tasks before sending to the model
+      const nonOverdueTasks = tasks.filter(task => !isOverdue(task.due_date));
+      
+      if (nonOverdueTasks.length === 0) {
+        alert("همه تکالیف مهلت‌شان گذشته است. لطفا تکالیف جدیدی اضافه کنید.");
+        setLoading(false);
+        return;
+      }
+      
+      // Map only non-overdue tasks to API format
+      const taskIndicesMap = tasks.map((_, i) => i).filter(i => !isOverdue(tasks[i].due_date));
+      const apiTasks = nonOverdueTasks.map(({ available_hours, ...rest }) => ({ ...rest, due_time: available_hours }));
+      
       const planIndices: number[] = [];
       const remaining = apiTasks.map((_, i) => i);
       let currentTime = 0;
@@ -211,7 +223,7 @@ export default function Page() {
         if (greedy) { idxSelected = probs.indexOf(Math.max(...probs)); } 
         else { const r = Math.random(); let cum = 0; idxSelected = probs.findIndex((p) => (cum += p) >= r); if (idxSelected < 0) idxSelected = probs.length - 1; }
         const selected = remaining[idxSelected];
-        planIndices.push(selected);
+        planIndices.push(taskIndicesMap[selected]); // Map back to original task index
         const t = apiTasks[selected];
         currentTime += ((t.min_duration + t.max_duration) / 2) * rest;
         remaining.splice(idxSelected, 1);
