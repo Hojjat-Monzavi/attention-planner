@@ -45,8 +45,9 @@ export default function Page() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [name, setName] = useState("");
   const [priority, setPriority] = useState(5);
-  const [minD, setMinD] = useState(1.0);
-  const [maxD, setMaxD] = useState(1.5);
+  const [minD, setMinD] = useState<number | "">(1.0);
+  const [maxD, setMaxD] = useState<number | "">(1.5);
+  const [editingTask, setEditingTask] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [dailyHours, setDailyHours] = useState(8);
   const [weekendHours, setWeekendHours] = useState(4);
@@ -319,8 +320,8 @@ export default function Page() {
     setTasks((prev) => [...prev, { 
       name: newName, 
       priority: priority || 5, 
-      min_duration: minD || 1, 
-      max_duration: maxD || 1.5, 
+      min_duration: Number(minD) || 1, 
+      max_duration: Number(maxD) || 1.5, 
       due_date: dueDate 
     }]);
     setName("");
@@ -335,7 +336,7 @@ export default function Page() {
   async function clearCache() {
     try { 
       await caches.delete(MODEL_CACHE_KEY); 
-      showStatus('success', "کش مدل پاک شد. صفحه را رفرش کنید.");
+      showStatus('success', "حافظه پنهان پاک شد. صفحه را رفرش کنید.");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err) { console.error(err); }
   }
@@ -425,12 +426,12 @@ export default function Page() {
             <h1 className="text-3xl md:text-4xl font-black bg-gradient-to-l from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
               {translate('Attention Planner', 'Attention Planner')}
             </h1>
-            <p className="text-sm text-gray-500 font-medium">{translate('برنامه ریزی با کمک شبکه عصبی مصنوعی و مکانیسم Attention', 'Planning with attention based neural networks')}</p>
+            <p className="text-sm text-gray-500 font-medium">{translate('برنامه ریزی بهینه به کمک شبکه های عصبی با معماری Transformers', 'Transformer-based Task Scheduling')}</p>
           </div>
           <div className="flex items-center gap-2">
             <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${modelReady ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
               {modelReady ? <Zap size={14} className="animate-pulse" /> : <Loader2 size={14} className="animate-spin" />}
-              {modelReady ? translate('مدل آماده است', 'Ready') : translate('در حال دریافت مدل', 'Loading')}
+              {modelReady ? translate('آماده', 'Ready') : translate('بارگذاری', 'Loading')}
             </div>
             <Button variant="ghost" size="icon" onClick={toggleLanguage} className="rounded-full hover:bg-gray-100">
               <Globe size={18} />
@@ -609,7 +610,7 @@ export default function Page() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                {plan ? translate('برنامه پیشنهادی', 'Optimized Schedule') : translate('تکالیف', 'Tasks')}
+                {translate('تکالیف', 'Tasks')}
                 <span className="px-2.5 py-1 bg-gray-900 text-white text-sm rounded-full font-bold">{formatNumber(tasks.length)}</span>
               </h2>
               {plan && (
@@ -619,18 +620,18 @@ export default function Page() {
                   onClick={() => setPlan(null)}
                   className="text-gray-500 hover:text-gray-700 font-semibold"
                 >
-                  {translate('بازگشت به حالت اولیه', 'Reset Order')}
+                  {translate('بازگشت به ترتیب اولیه', 'Reset Order')}
                 </Button>
               )}
             </div>
 
-            <div className={`space-y-0 rounded-2xl overflow-hidden border-2 ${plan ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border-gray-700' : 'border-gray-100'}`}>
+            <div className="space-y-3">
               {(plan ? plan.map(idx => ({ task: tasks[idx], originalIdx: idx })) : tasks.map((task, idx) => ({ task, originalIdx: idx }))).map((item, displayPos) => {
                 if (!item.task) return null;
                 const task = item.task;
                 const overdue = isOverdue(task.due_date);
                 const avgDuration = ((task.min_duration + task.max_duration) / 2).toFixed(1);
-                const isPlanned = !!plan;
+                const isEditing = editingTask === item.originalIdx;
                 
                 return (
                   <motion.div
@@ -638,90 +639,166 @@ export default function Page() {
                     layout
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: displayPos * 0.05 }}
-                    className={`group relative p-5 transition-all ${
-                      isPlanned
-                        ? 'border-b border-gray-700/50 last:border-0 hover:bg-gray-800/50'
-                        : `border-b-2 last:border-0 hover:shadow-lg ${
-                            overdue 
-                              ? 'bg-red-50/50 border-red-200' 
-                              : 'bg-white border-gray-100 hover:border-blue-200'
-                          }`
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className={`group relative p-5 rounded-2xl border-2 transition-all ${
+                      overdue 
+                        ? 'bg-red-50/50 border-red-200' 
+                        : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-lg'
                     }`}
                   >
-                    <div className="flex items-start gap-4">
-                      <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-lg ${
-                        isPlanned
-                          ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-blue-500/30'
-                          : overdue 
-                            ? 'bg-red-500 text-white' 
-                            : 'bg-gradient-to-br from-gray-700 to-gray-900 text-white'
-                      }`}>
-                        {overdue && !isPlanned ? <AlertCircle size={20} /> : formatNumber(displayPos + 1)}
+                    {isEditing ? (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-gray-600">{translate('عنوان', 'Title')}</Label>
+                          <Input 
+                            value={task.name}
+                            onChange={(e) => {
+                              const newTasks = [...tasks];
+                              newTasks[item.originalIdx].name = e.target.value;
+                              setTasks(newTasks);
+                            }}
+                            className="h-10 bg-gray-50 border-gray-200"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-gray-600">{translate('اولویت', 'Priority')}</Label>
+                            <Input 
+                              type="text"
+                              value={formatNumber(task.priority)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+                                if (!isNaN(Number(val))) {
+                                  const newTasks = [...tasks];
+                                  newTasks[item.originalIdx].priority = Number(val);
+                                  setTasks(newTasks);
+                                }
+                              }}
+                              className="h-10 text-center font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-gray-600">{translate('حداقل', 'Min')}</Label>
+                            <Input 
+                              type="text"
+                              value={formatNumber(task.min_duration)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+                                if (!isNaN(Number(val))) {
+                                  const newTasks = [...tasks];
+                                  newTasks[item.originalIdx].min_duration = Number(val);
+                                  setTasks(newTasks);
+                                }
+                              }}
+                              className="h-10 text-center font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold text-gray-600">{translate('حداکثر', 'Max')}</Label>
+                            <Input 
+                              type="text"
+                              value={formatNumber(task.max_duration)}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+                                if (!isNaN(Number(val))) {
+                                  const newTasks = [...tasks];
+                                  newTasks[item.originalIdx].max_duration = Number(val);
+                                  setTasks(newTasks);
+                                }
+                              }}
+                              className="h-10 text-center font-bold"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-gray-600">{translate('مهلت', 'Due Date')}</Label>
+                          <DatePicker 
+                            calendar={persian} 
+                            locale={persian_fa} 
+                            value={isoToJalaliDateObject(task.due_date)} 
+                            onChange={(d: any) => { 
+                              try { 
+                                const iso = d.toDate().toISOString().split("T")[0];
+                                const newTasks = [...tasks];
+                                newTasks[item.originalIdx].due_date = iso;
+                                setTasks(newTasks);
+                              } catch (e) { console.error(e); } 
+                            }} 
+                            format="YYYY/MM/DD"
+                            inputClass="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 outline-none text-sm font-medium"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button 
+                            size="sm"
+                            onClick={() => setEditingTask(null)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {translate('ذخیره', 'Save')}
+                          </Button>
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingTask(null)}
+                            className="flex-1"
+                          >
+                            {translate('لغو', 'Cancel')}
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className={`font-bold text-lg leading-tight ${
-                            isPlanned 
-                              ? 'text-white' 
-                              : overdue 
-                                ? 'line-through text-gray-400' 
-                                : 'text-gray-900'
-                          }`}>
-                            {task.name}
-                          </h3>
-                          {!isPlanned && (
-                            <button
-                              onClick={() => setTasks(prev => prev.filter((_, idx) => idx !== item.originalIdx))}
-                              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:bg-red-100 hover:text-red-500 transition-all"
-                            >
-                              <X size={16} />
-                            </button>
-                          )}
+                    ) : (
+                      <div className="flex items-start gap-4">
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-lg ${
+                          overdue ? 'bg-red-500 text-white' : 'bg-gradient-to-br from-gray-700 to-gray-900 text-white'
+                        }`}>
+                          {overdue ? <AlertCircle size={20} /> : formatNumber(displayPos + 1)}
                         </div>
                         
-                        <div className="flex flex-wrap gap-2">
-                          {isPlanned ? (
-                            <>
-                              <span className="inline-flex items-center gap-1 text-xs text-gray-400">
-                                <Zap size={12} className="text-blue-400" />
-                                {translate('اولویت', 'Priority')} <span className="text-blue-300 font-bold">{formatNumber(task.priority)}</span>
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-xs text-gray-400">
-                                <Clock size={12} className="text-emerald-400" />
-                                {translate('تخمین', 'Est')} <span className="text-emerald-300 font-bold">{formatNumber(avgDuration)}h</span>
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border ${getPriorityColor(task.priority)}`}>
-                                <Zap size={12} />
-                                {formatNumber(task.priority)}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
-                                <Clock size={12} />
-                                {formatNumber(avgDuration)}h
-                              </span>
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${
-                                overdue 
-                                  ? 'bg-red-100 text-red-700 border border-red-200' 
-                                  : 'bg-blue-100 text-blue-700 border border-blue-200'
-                              }`}>
-                                <Calendar size={12} />
-                                {formatDueDate(task.due_date)}
-                              </span>
-                            </>
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <h3 className={`font-bold text-lg leading-tight ${overdue ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                              {task.name}
+                            </h3>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setEditingTask(item.originalIdx)}
+                                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:bg-blue-100 hover:text-blue-500 transition-all"
+                              >
+                                <Settings size={16} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTasks(prev => prev.filter((_, idx) => idx !== item.originalIdx));
+                                  setPlan(null);
+                                }}
+                                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:bg-red-100 hover:text-red-500 transition-all"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border ${getPriorityColor(task.priority)}`}>
+                              <Zap size={12} />
+                              {formatNumber(task.priority)}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
+                              <Clock size={12} />
+                              {formatNumber(avgDuration)}h
+                            </span>
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${
+                              overdue 
+                                ? 'bg-red-100 text-red-700 border border-red-200' 
+                                : 'bg-blue-100 text-blue-700 border border-blue-200'
+                            }`}>
+                              <Calendar size={12} />
+                              {formatDueDate(task.due_date)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-
-                      {isPlanned && (
-                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-700/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <CheckCircle2 size={16} className="text-emerald-400" />
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </motion.div>
                 );
               })}
