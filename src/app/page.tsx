@@ -335,7 +335,7 @@ export default function Page() {
   async function clearCache() {
     try { 
       await caches.delete(MODEL_CACHE_KEY); 
-      showStatus('success', "حافظه پنهان پاک شد. صفحه را رفرش کنید.");
+      showStatus('success', "کش مدل پاک شد. صفحه را رفرش کنید.");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err) { console.error(err); }
   }
@@ -423,9 +423,9 @@ export default function Page() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl md:text-4xl font-black bg-gradient-to-l from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
-              {translate('برنامه‌ریز هوشمند', 'Smart Planner')}
+              {translate('Attention Planner', 'Attention Planner')}
             </h1>
-            <p className="text-sm text-gray-500 font-medium">{translate('مدیریت زمان با هوش مصنوعی', 'AI-Powered Task Scheduling')}</p>
+            <p className="text-sm text-gray-500 font-medium">{translate('برنامه ریزی با کمک شبکه عصبی مصنوعی و مکانیسم Attention', 'Planning with attention based neural networks')}</p>
           </div>
           <div className="flex items-center gap-2">
             <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${modelReady ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
