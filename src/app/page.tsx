@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { 
-  Trash2, 
-  Download, 
-  PlusCircle, 
-  Loader2, 
-  Calendar, 
-  Settings, 
+import {
+  Trash2,
+  Download,
+  PlusCircle,
+  Loader2,
+  Calendar,
+  Settings,
   Globe,
   AlertCircle,
   CheckCircle2,
@@ -57,7 +57,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [modelReady, setModelReady] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<{type: 'error' | 'success', text: string} | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
   const sessionRef = useRef<ort.InferenceSession | null>(null);
 
@@ -75,13 +75,13 @@ export default function Page() {
   useEffect(() => {
     async function loadModel() {
       try {
-        ort.env.wasm.numThreads = 1; 
+        ort.env.wasm.numThreads = 1;
         ort.env.wasm.simd = true;
 
         const cache = await caches.open(MODEL_CACHE_KEY);
         let modelData: ArrayBuffer;
         const cachedResponse = await cache.match(MODEL_URL);
-        
+
         if (cachedResponse) {
           modelData = await cachedResponse.arrayBuffer();
         } else {
@@ -90,8 +90,8 @@ export default function Page() {
           await cache.put(MODEL_URL, response.clone());
           modelData = await response.arrayBuffer();
         }
-        
-        const session = await ort.InferenceSession.create(modelData, { 
+
+        const session = await ort.InferenceSession.create(modelData, {
           executionProviders: ["wasm"],
           graphOptimizationLevel: 'all'
         });
@@ -110,7 +110,7 @@ export default function Page() {
     const savedLanguage = localStorage.getItem('preferred_language');
     if (savedLanguage === 'en' || savedLanguage === 'fa') setLanguage(savedLanguage);
     else setLanguage('en');
-    
+
     const rawTasks = localStorage.getItem(LS_TASKS_KEY);
     if (rawTasks) {
       try {
@@ -118,7 +118,7 @@ export default function Page() {
         if (Array.isArray(parsed)) setTasks(parsed);
       } catch (err) { console.error(err); }
     }
-    
+
     const rawSchedule = localStorage.getItem(LS_SCHEDULE_KEY);
     if (rawSchedule) {
       try {
@@ -127,7 +127,7 @@ export default function Page() {
         setWeekendHours(parsed.weekendHours ?? 4);
       } catch (err) { console.error(err); }
     }
-    
+
     const rawSettings = localStorage.getItem(LS_SETTINGS_KEY);
     if (rawSettings) {
       try {
@@ -135,7 +135,7 @@ export default function Page() {
         setRest(parsed.rest ?? 1.2);
       } catch (err) { console.error(err); }
     }
-    
+
     setDueDate(new Date().toISOString().split("T")[0]);
   }, []);
 
@@ -222,18 +222,18 @@ export default function Page() {
   };
 
   async function getPlan(greedy = true) {
-    if (!sessionRef.current) { 
-      showStatus('error', "مدل هنوز بارگذاری نشده است. لطفا کمی صبر کنید."); 
-      return; 
+    if (!sessionRef.current) {
+      showStatus('error', "مدل هنوز بارگذاری نشده است. لطفا کمی صبر کنید.");
+      return;
     }
-    
+
     setLoading(true);
     setPlan(null);
-    
+
     try {
       const validTaskIndices = tasks.map((_, i) => i).filter(i => !isOverdue(tasks[i].due_date));
       const apiTasks = validTaskIndices.map(i => tasks[i]);
-      
+
       if (apiTasks.length === 0) {
         showStatus('error', "همه تکالیف مهلت‌شان گذشته است یا لیستی وجود ندارد.");
         setLoading(false);
@@ -250,7 +250,7 @@ export default function Page() {
         for (let i = 0; i < nTasks; i++) {
           currentFeats.push(...taskToVec(apiTasks[i], currentTime));
         }
-        
+
         const featsTensor = new ort.Tensor('float32', Float32Array.from(currentFeats), [1, nTasks, 8]);
         const restTensor = new ort.Tensor('float32', Float32Array.from([rest]), [1]);
         const maskData = new Uint8Array(mask.map(m => m ? 1 : 0));
@@ -264,20 +264,20 @@ export default function Page() {
 
         const logits = results.logits.data as Float32Array;
         let selectedIdx = -1;
-        
-        const validLogits: {val: number, idx: number}[] = [];
+
+        const validLogits: { val: number, idx: number }[] = [];
         let maxL = -Infinity;
-        
-        for(let i=0; i<nTasks; i++) {
-           if(mask[i]) {
-             if(logits[i] > maxL) maxL = logits[i];
-             validLogits.push({ val: logits[i], idx: i });
-           }
+
+        for (let i = 0; i < nTasks; i++) {
+          if (mask[i]) {
+            if (logits[i] > maxL) maxL = logits[i];
+            validLogits.push({ val: logits[i], idx: i });
+          }
         }
-        
-        const exps = validLogits.map(item => ({...item, exp: Math.exp(item.val - maxL)}));
+
+        const exps = validLogits.map(item => ({ ...item, exp: Math.exp(item.val - maxL) }));
         const sumExps = exps.reduce((acc, item) => acc + item.exp, 0);
-        const probs = exps.map(item => ({...item, prob: item.exp / sumExps}));
+        const probs = exps.map(item => ({ ...item, prob: item.exp / sumExps }));
 
         if (greedy) {
           const best = probs.reduce((prev, curr) => (prev.prob > curr.prob ? prev : curr), probs[0]);
@@ -298,7 +298,7 @@ export default function Page() {
         if (selectedIdx !== -1) {
           planIndices.push(validTaskIndices[selectedIdx]);
           mask[selectedIdx] = false;
-          
+
           const t = apiTasks[selectedIdx];
           const avgDur = (t.min_duration + t.max_duration) / 2;
           currentTime += avgDur * rest;
@@ -317,25 +317,24 @@ export default function Page() {
 
   function addTask() {
     const newName = name?.trim() || `تکلیف شماره ${formatNumber(tasks.length + 1)}`;
-    setTasks((prev) => [...prev, { 
-      name: newName, 
-      priority: priority || 5, 
-      min_duration: Number(minD) || 1, 
-      max_duration: Number(maxD) || 1.5, 
-      due_date: dueDate 
+    setTasks((prev) => [...prev, {
+      name: newName,
+      priority: priority || 5,
+      min_duration: Number(minD) || 1,
+      max_duration: Number(maxD) || 1.5,
+      due_date: dueDate
     }]);
-    setName("");
     showStatus('success', 'تکلیف اضافه شد');
   }
 
-  function clearTasks() { 
-    setTasks([]); 
-    setPlan(null); 
+  function clearTasks() {
+    setTasks([]);
+    setPlan(null);
   }
 
   async function clearCache() {
-    try { 
-      await caches.delete(MODEL_CACHE_KEY); 
+    try {
+      await caches.delete(MODEL_CACHE_KEY);
       showStatus('success', "حافظه پنهان پاک شد. صفحه را رفرش کنید.");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err) { console.error(err); }
@@ -391,35 +390,85 @@ export default function Page() {
   return (
     <main dir={language === 'en' ? 'ltr' : 'rtl'} className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50 p-4 md:p-8">
       <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-      <style dangerouslySetInnerHTML={{ __html: `* { font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; }` }} />
-      
+      <style dangerouslySetInnerHTML={{
+        __html: `* { font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; }
+        
+  .footer-floating {
+    position: fixed;
+    bottom: 20px;
+    right: 50%;
+    transform: translateX(50%);
+    padding: 12px 20px;
+    border-radius: 16px;
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 999;
+    font-size: 0.95em;
+    white-space: nowrap;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .footer-floating:hover {
+    transform: translateX(50%) translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .footer-link-floating {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #1f2937;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .footer-link-floating:hover {
+    color: #3b82f6;
+  }
+
+  .tg-icon {
+    width: 22px;
+    height: 22px;
+    filter: invert(10%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .footer-link-floating:hover .tg-icon {
+    transform: scale(1.1) rotate(5deg);
+  }
+`}} />
+
       <AnimatePresence>
         {statusMsg && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-xl flex items-center gap-3 text-sm font-semibold backdrop-blur-xl"
             style={{
-              background: statusMsg.type === 'error' 
-                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95))' 
+              background: statusMsg.type === 'error'
+                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95))'
                 : 'linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.95))',
               color: 'white'
             }}
           >
-            {statusMsg.type === 'error' ? <AlertCircle size={18}/> : <CheckCircle2 size={18}/>}
+            {statusMsg.type === 'error' ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
             {statusMsg.text}
-            <button onClick={() => setStatusMsg(null)} className="hover:opacity-80"><X size={16}/></button>
+            <button onClick={() => setStatusMsg(null)} className="hover:opacity-80"><X size={16} /></button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         className="max-w-4xl mx-auto space-y-6"
       >
-        
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -452,9 +501,9 @@ export default function Page() {
           <CardContent className="pt-6 space-y-5">
             <div className="space-y-2">
               <Label className="text-xs font-bold text-gray-600 uppercase tracking-wide">{translate('عنوان', 'Title')}</Label>
-              <Input 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder={translate('مثال: مطالعه فصل سوم', 'e.g., Study Chapter 3')}
                 className="h-12 bg-gray-50/50 border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                 onKeyDown={(e) => e.key === 'Enter' && dueDate && addTask()}
@@ -467,28 +516,28 @@ export default function Page() {
                   <Calendar size={12} />
                   {translate('مهلت', 'Due Date')}
                 </Label>
-                <DatePicker 
-                  calendar={persian} 
-                  locale={persian_fa} 
-                  value={isoToJalaliDateObject(dueDate)} 
-                  onChange={(d: any) => { 
-                    try { 
-                      const iso = d.toDate().toISOString().split("T")[0]; 
-                      setDueDate(iso); 
-                    } catch (e) { console.error(e); } 
-                  }} 
+                <DatePicker
+                  calendar={persian}
+                  locale={persian_fa}
+                  value={isoToJalaliDateObject(dueDate)}
+                  onChange={(d: any) => {
+                    try {
+                      const iso = d.toDate().toISOString().split("T")[0];
+                      setDueDate(iso);
+                    } catch (e) { console.error(e); }
+                  }}
                   format="YYYY/MM/DD"
                   inputClass="w-full h-12 px-4 rounded-lg border border-gray-200 bg-gray-50/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-sm font-medium"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-600 uppercase tracking-wide">{translate('اولویت', 'Priority')}</Label>
-                <Input 
-                  type="number" 
-                  min={1} 
-                  max={10} 
-                  value={priority || ""} 
-                  onChange={(e) => setPriority(Number(e.target.value))} 
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={priority || ""}
+                  onChange={(e) => setPriority(Number(e.target.value))}
                   className="h-12 text-center text-lg font-bold bg-gray-50/50 border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -497,21 +546,21 @@ export default function Page() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-600 uppercase tracking-wide">{translate('حداقل زمان (ساعت)', 'Min Hours')}</Label>
-                <Input 
-                  type="number" 
-                  step="0.5" 
-                  value={minD || ""} 
-                  onChange={(e) => setMinD(Number(e.target.value))} 
+                <Input
+                  type="number"
+                  step="0.5"
+                  value={minD || ""}
+                  onChange={(e) => setMinD(Number(e.target.value))}
                   className="h-12 text-center text-lg font-semibold bg-gray-50/50 border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-600 uppercase tracking-wide">{translate('حداکثر زمان (ساعت)', 'Max Hours')}</Label>
-                <Input 
-                  type="number" 
-                  step="0.5" 
-                  value={maxD || ""} 
-                  onChange={(e) => setMaxD(Number(e.target.value))} 
+                <Input
+                  type="number"
+                  step="0.5"
+                  value={maxD || ""}
+                  onChange={(e) => setMaxD(Number(e.target.value))}
                   className="h-12 text-center text-lg font-semibold bg-gray-50/50 border-gray-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -530,16 +579,16 @@ export default function Page() {
             )}
 
             <div className="flex gap-3 pt-2">
-              <Button 
-                onClick={addTask} 
+              <Button
+                onClick={addTask}
                 disabled={!dueDate}
                 className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none"
               >
                 <PlusCircle size={20} className={language === 'en' ? 'mr-2' : 'ml-2'} />
                 {translate('افزودن', 'Add Task')}
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="icon"
                 onClick={() => setShowSettings(!showSettings)}
                 className="h-12 w-12 border-gray-200 hover:bg-gray-50"
@@ -548,16 +597,16 @@ export default function Page() {
               </Button>
               {tasks.length > 0 && (
                 <>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     onClick={exportTasks}
                     className="h-12 w-12 border-gray-200 hover:bg-gray-50"
                   >
                     <Download size={20} />
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     onClick={clearTasks}
                     className="h-12 w-12 border-red-200 hover:bg-red-50 text-red-500"
@@ -573,9 +622,9 @@ export default function Page() {
         {/* Settings */}
         <AnimatePresence>
           {showSettings && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }} 
-              animate={{ opacity: 1, height: "auto" }} 
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
             >
               <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-white">
@@ -632,7 +681,7 @@ export default function Page() {
                 const overdue = isOverdue(task.due_date);
                 const avgDuration = ((task.min_duration + task.max_duration) / 2).toFixed(1);
                 const isEditing = editingTask === item.originalIdx;
-                
+
                 return (
                   <motion.div
                     key={item.originalIdx}
@@ -640,17 +689,16 @@ export default function Page() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className={`group relative p-5 rounded-2xl border-2 transition-all ${
-                      overdue 
-                        ? 'bg-red-50/50 border-red-200' 
-                        : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-lg'
-                    }`}
+                    className={`group relative p-5 rounded-2xl border-2 transition-all ${overdue
+                      ? 'bg-red-50/50 border-red-200'
+                      : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-lg'
+                      }`}
                   >
                     {isEditing ? (
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label className="text-xs font-bold text-gray-600">{translate('عنوان', 'Title')}</Label>
-                          <Input 
+                          <Input
                             value={task.name}
                             onChange={(e) => {
                               const newTasks = [...tasks];
@@ -663,7 +711,7 @@ export default function Page() {
                         <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-2">
                             <Label className="text-xs font-bold text-gray-600">{translate('اولویت', 'Priority')}</Label>
-                            <Input 
+                            <Input
                               type="text"
                               value={formatNumber(task.priority)}
                               onChange={(e) => {
@@ -679,7 +727,7 @@ export default function Page() {
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold text-gray-600">{translate('حداقل', 'Min')}</Label>
-                            <Input 
+                            <Input
                               type="text"
                               value={formatNumber(task.min_duration)}
                               onChange={(e) => {
@@ -695,7 +743,7 @@ export default function Page() {
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-bold text-gray-600">{translate('حداکثر', 'Max')}</Label>
-                            <Input 
+                            <Input
                               type="text"
                               value={formatNumber(task.max_duration)}
                               onChange={(e) => {
@@ -712,31 +760,31 @@ export default function Page() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs font-bold text-gray-600">{translate('مهلت', 'Due Date')}</Label>
-                          <DatePicker 
-                            calendar={persian} 
-                            locale={persian_fa} 
-                            value={isoToJalaliDateObject(task.due_date)} 
-                            onChange={(d: any) => { 
-                              try { 
+                          <DatePicker
+                            calendar={persian}
+                            locale={persian_fa}
+                            value={isoToJalaliDateObject(task.due_date)}
+                            onChange={(d: any) => {
+                              try {
                                 const iso = d.toDate().toISOString().split("T")[0];
                                 const newTasks = [...tasks];
                                 newTasks[item.originalIdx].due_date = iso;
                                 setTasks(newTasks);
-                              } catch (e) { console.error(e); } 
-                            }} 
+                              } catch (e) { console.error(e); }
+                            }}
                             format="YYYY/MM/DD"
                             inputClass="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 outline-none text-sm font-medium"
                           />
                         </div>
                         <div className="flex gap-2 pt-2">
-                          <Button 
+                          <Button
                             size="sm"
                             onClick={() => setEditingTask(null)}
                             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                           >
                             {translate('ذخیره', 'Save')}
                           </Button>
-                          <Button 
+                          <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setEditingTask(null)}
@@ -748,12 +796,11 @@ export default function Page() {
                       </div>
                     ) : (
                       <div className="flex items-start gap-4">
-                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-lg ${
-                          overdue ? 'bg-red-500 text-white' : 'bg-gradient-to-br from-gray-700 to-gray-900 text-white'
-                        }`}>
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg shadow-lg ${overdue ? 'bg-red-500 text-white' : 'bg-gradient-to-br from-gray-700 to-gray-900 text-white'
+                          }`}>
                           {overdue ? <AlertCircle size={20} /> : formatNumber(displayPos + 1)}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <h3 className={`font-bold text-lg leading-tight ${overdue ? 'line-through text-gray-400' : 'text-gray-900'}`}>
@@ -777,7 +824,7 @@ export default function Page() {
                               </button>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-2">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border ${getPriorityColor(task.priority)}`}>
                               <Zap size={12} />
@@ -787,11 +834,10 @@ export default function Page() {
                               <Clock size={12} />
                               {formatNumber(avgDuration)}h
                             </span>
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${
-                              overdue 
-                                ? 'bg-red-100 text-red-700 border border-red-200' 
-                                : 'bg-blue-100 text-blue-700 border border-blue-200'
-                            }`}>
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${overdue
+                              ? 'bg-red-100 text-red-700 border border-red-200'
+                              : 'bg-blue-100 text-blue-700 border border-blue-200'
+                              }`}>
                               <Calendar size={12} />
                               {formatDueDate(task.due_date)}
                             </span>
@@ -808,8 +854,8 @@ export default function Page() {
 
         {/* Generate Plan Buttons */}
         {tasks.length > 0 && (
-          <div className="sticky bottom-6 z-10 flex justify-center">
-            <motion.div 
+          <div className="sticky bottom-20 z-10 flex justify-center">
+            <motion.div
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               className="bg-white/95 backdrop-blur-xl p-3 rounded-2xl shadow-2xl border border-gray-200 flex gap-3"
@@ -859,6 +905,19 @@ export default function Page() {
             <p className="text-gray-500 text-sm">{translate('برای شروع، یک تکلیف اضافه کنید', 'Add your first task to get started')}</p>
           </motion.div>
         )}
+
+        <footer className="footer-floating">
+          <a href="https://t.me/OlumPayeQuestion" target="_blank" rel="noopener noreferrer" className="footer-link-floating">
+            <img
+              src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/telegram.svg"
+              className="tg-icon"
+              alt="Telegram"
+            />
+            {language === 'en'
+              ? 'Daily science questions @OlumPayeQuestion'
+              : 'هر روز کلی سؤال علوم پایه در @OlumPayeQuestion'}
+          </a>
+        </footer>
 
       </motion.div>
     </main>
